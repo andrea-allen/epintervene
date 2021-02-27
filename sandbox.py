@@ -41,10 +41,19 @@ def run():
     nx.draw_networkx_edges(G, pos)
     plt.show()
 
-    A = np.random.random_integers(0, 1, (10, 10))
+    A = np.random.random_integers(0, 1, (60, 60))
     A = (A + A.T) / 2
+    np.fill_diagonal(A, 0)
     sim = simulation.Simulation(A)
-    sim.add_infection_event_rates(np.zeros((2, 2)))
+    Beta = np.full((len(A), len(A)), 0.5)
+    Gamma = np.full(len(A), 0.9)
+    sim.add_infection_event_rates(Beta)
+    sim.add_recover_event_rates(Gamma)
+    sim.run_sim()
+    ts, infect_ts, recover_ts = sim.tabulate_continuous_time(1000)
+    plt.plot(ts, infect_ts, color='blue')
+    plt.plot(ts, recover_ts, color='green')
+    plt.show()
     return A
 
 
