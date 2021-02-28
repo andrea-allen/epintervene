@@ -17,7 +17,7 @@ class TestSimulation(unittest.TestCase):
         sim.add_infection_event_rates(good_Beta)
 
         sim.initialize_patient_zero()
-        self.assertEqual(len(sim.current_infected.event_list), 1)
+        self.assertEqual(len(sim.potential_recovery_events.event_list), 1)
 
     def test_beta_rate_matrix_throws_exception(self):
         A = np.random.random_integers(0, 1, (10, 10))
@@ -32,12 +32,12 @@ class TestSimulation(unittest.TestCase):
         sim = simulation.Simulation(A)
         good_Beta = np.full((10,10), 0.2)
         good_Gamma = np.full(10, 0.5)
-        for edge in sim.current_IS_edges.event_list:
+        for edge in sim.potential_IS_events.event_list:
             self.assertEqual(edge.event_rate, 0)
 
         sim.add_infection_event_rates(good_Beta)
         sim.add_recover_event_rates(good_Gamma)
-        for edge in sim.current_IS_edges.event_list:
+        for edge in sim.potential_IS_events.event_list:
             self.assertEqual(edge.event_rate, 0.2)
 
     def test_IS_edges_are_updated_after_single_step(self):
@@ -55,22 +55,22 @@ class TestSimulation(unittest.TestCase):
         sim.initialize_patient_zero()
         print('before single step')
 
-        self.assertGreaterEqual(len(sim.current_IS_edges.event_list), 1)
-        self.assertEqual(len(sim.current_infected.event_list), 1)
+        self.assertGreaterEqual(len(sim.potential_IS_events.event_list), 1)
+        self.assertEqual(len(sim.potential_recovery_events.event_list), 1)
         sim.single_step()
 
         print('after single step')
-        self.assertEqual(len(sim.current_infected.event_list), 2)
-        infected_nodes = list(map(lambda node: node.label, sim.current_infected.event_list))
-        for edge in sim.current_IS_edges.event_list:
+        self.assertEqual(len(sim.potential_recovery_events.event_list), 2)
+        infected_nodes = list(map(lambda node: node.label, sim.potential_recovery_events.event_list))
+        for edge in sim.potential_IS_events.event_list:
             self.assertIn(edge.left_node.label, infected_nodes)
             self.assertNotIn(edge.right_node.label, infected_nodes)
-        if len(sim.current_IS_edges.event_list) > 0:
+        if len(sim.potential_IS_events.event_list) > 0:
             sim.single_step()
             print('after second single step')
-            self.assertEqual(len(sim.current_infected.event_list), 3)
-            infected_nodes = list(map(lambda node: node.label, sim.current_infected.event_list))
-            for edge in sim.current_IS_edges.event_list:
+            self.assertEqual(len(sim.potential_recovery_events.event_list), 3)
+            infected_nodes = list(map(lambda node: node.label, sim.potential_recovery_events.event_list))
+            for edge in sim.potential_IS_events.event_list:
                 self.assertIn(edge.left_node.label, infected_nodes)
                 self.assertNotIn(edge.right_node.label, infected_nodes)
 

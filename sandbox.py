@@ -44,6 +44,9 @@ def run():
     A = np.random.random_integers(0, 1, (60, 60))
     A = (A + A.T) / 2
     np.fill_diagonal(A, 0)
+
+    # SIR model sandbox
+
     sim = simulation.Simulation(A)
     Beta = np.full((len(A), len(A)), 0.5)
     Gamma = np.full(len(A), 0.9)
@@ -51,9 +54,54 @@ def run():
     sim.add_recover_event_rates(Gamma)
     sim.run_sim()
     ts, infect_ts, recover_ts = sim.tabulate_continuous_time(1000)
-    plt.plot(ts, infect_ts, color='blue')
-    plt.plot(ts, recover_ts, color='green')
+
+    plt.figure(1)
+    plt.plot(ts, infect_ts, color='blue', label='Infected')
+    plt.plot(ts, recover_ts, color='green', label='Recovered')
+    plt.xlabel('Time t')
+    plt.ylabel('Number of nodes in class')
+    plt.legend(loc='upper left')
+    # plt.show()
+
+    ts_by_gen = sim.tabulate_generation_results(20)
+    plt.figure(2)
+    plt.plot(np.arange(len(ts_by_gen)), ts_by_gen)
+    plt.scatter(np.arange(len(ts_by_gen)), ts_by_gen)
+    plt.xlabel('Generation number')
+    plt.ylabel('Cumulative infections by generation')
     plt.show()
+
+    # SEIR model sandbox
+    # todo make sure all the lists sum to total nodes
+    sim = simulation.SimulationSEIR(A)
+    Beta_IS = np.full((len(A), len(A)), 0.5)
+    Gamma = np.full(len(A), 0.9)
+    Beta_ES = np.full((len(A), len(A)), 0.8)
+    Theta_EI = np.full(len(A), 0.9)
+    sim.add_infection_event_rates(Beta_IS)
+    sim.add_exposed_event_rates(Beta_ES)
+    sim.add_recover_event_rates(Gamma)
+    sim.add_exposed_infected_event_rates(Theta_EI)
+    sim.run_sim()
+    ts, infect_ts, recover_ts, exposed_ts = sim.tabulate_continuous_time(1000)
+
+    plt.figure(1)
+    plt.plot(ts, infect_ts, color='red', label='Infected')
+    plt.plot(ts, exposed_ts, color='orange', label='Exposed')
+    plt.plot(ts, recover_ts, color='green', label='Recovered')
+    plt.xlabel('Time t')
+    plt.ylabel('Number of nodes in class')
+    plt.legend(loc='upper left')
+    # plt.show()
+
+    ts_by_gen = sim.tabulate_generation_results(20)
+    plt.figure(2)
+    plt.plot(np.arange(len(ts_by_gen)), ts_by_gen)
+    plt.scatter(np.arange(len(ts_by_gen)), ts_by_gen)
+    plt.xlabel('Generation number')
+    plt.ylabel('Cumulative infections by generation')
+    plt.show()
+
     return A
 
 

@@ -1,25 +1,29 @@
 import numpy as np
 import networkx as nx
 import math
+from epintervene.simobjects import nodestate
 
 
 class Node:
-    def __init__(self, label, generation, state, recover_rate):
+    def __init__(self, label, generation, state, event_rate):
         self.generation = generation
         self.label = label
         self.state = state
-        self.event_rate = recover_rate
+        self.event_rate = event_rate
 
     def infect(self):
-        self.state = 1
+        self.state = nodestate.NodeState.INFECTED
 
     def recover(self):
-        self.state = 2
+        self.state = nodestate.NodeState.RECOVERED
+
+    def expose(self):
+        self.state = nodestate.NodeState.EXPOSED
 
     def set_generation(self, g):
         self.generation = g
 
-    def set_recover_rate(self, recover_rate):
+    def set_event_rate(self, event_rate): #keep re-setting this no matter if the next phase is recovery or exposure to infection
         self.event_rate = event_rate
 
     def display_info(self):
@@ -34,13 +38,17 @@ class Node:
 
 
 class Edge:
-    def __init__(self, left_node, right_node, infect_rate):
+    def __init__(self, left_node, right_node, event_rate):
         self.left_node = left_node  # not just an index, this is a whole Node object
         self.right_node = right_node
-        self.event_rate = infect_rate
+        self.event_rate = event_rate
 
     def infect(self):
         self.right_node.infect()
+        self.right_node.set_generation(self.left_node.generation + 1)
+
+    def expose(self):
+        self.right_node.expose()
         self.right_node.set_generation(self.left_node.generation + 1)
 
     def set_event_rate(self, event_rate):

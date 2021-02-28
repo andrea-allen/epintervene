@@ -2,6 +2,7 @@ import random
 import numpy as np
 from epintervene.simobjects import network
 from epintervene.simobjects import eventtype
+from epintervene.simobjects import nodestate
 
 
 class Event:
@@ -41,12 +42,14 @@ class Simulation:
         self.N = len(self.A[0])
         self.Beta = None
         self.Gamma = None
-        self.current_IS_edges = EventList(eventtype.EventType.INFECTEDSUSCEPTIBLE, [])
-        self.current_infected = EventList(eventtype.EventType.RECOVER, [])
+        self.potential_IS_events = EventList(eventtype.EventType.INFECTEDSUSCEPTIBLE, [])
+        self.potential_recovery_events = EventList(eventtype.EventType.RECOVER, [])
         self.recovered_nodes = []
-        self.has_been_infected_labels = []
+        self.current_infected_nodes = []  # for curre
+        self.has_been_infected_labels = []  # Can you get rid of this and just count up who's in current infected or current recovered? (or exposed for that model)
         self.highest_gen = 0
-        self.gen_collection = {}  # I think this should be kept because it's what sets apart this sim framework as unique
+        self.gen_collection = {}  # I think this should be kept because it's what sets apart this sim framework as
+        # unique
         self.active_nodes = []  # add documentation
         self.total_num_timesteps = 0
         self.time_series = [0]
@@ -63,33 +66,36 @@ class Simulation:
         if self.Beta is None:
             raise AttributeError(self.Beta,
                                  'Please provide an infection rate matrix Beta to the simulation via the add_infection_event_rates method')
-        patient_zero = network.Node(p_zero_idx, 0, 1, recover_rate=self.Gamma[p_zero_idx])
+        patient_zero = network.Node(p_zero_idx, 0, nodestate.NodeState.INFECTED, event_rate=self.Gamma[p_zero_idx])
         self.active_nodes.append(patient_zero)
+        self.current_infected_nodes.append(patient_zero)
         self.gen_collection[0] = [p_zero_idx]
-        self.current_infected.add_to_event_list(patient_zero)
+        self.potential_recovery_events.add_to_event_list(patient_zero)
         self.has_been_infected_labels.append(p_zero_idx)
         for j in range(0, len(self.A[0])):
             if self.A[p_zero_idx, j] == 1:
-                neighbor = network.Node(j, -1, 0, recover_rate=self.Gamma[j])
+                neighbor = network.Node(j, -1, 0, event_rate=self.Gamma[j])
                 self.active_nodes.append(neighbor)
                 edge_ij = network.Edge(patient_zero, neighbor,
-                                       infect_rate=self.Beta[patient_zero.label, neighbor.label])
-                self.current_IS_edges.add_to_event_list(edge_ij)
+                                       event_rate=self.Beta[patient_zero.label, neighbor.label])
+                self.potential_IS_events.add_to_event_list(edge_ij)
 
     def add_infection_event_rates(self, Beta):
         if len(Beta) != self.N:
             raise ValueError(Beta, 'Beta matrix must be N by N to match network size')
         else:
-            self.Beta = Beta  # Document: Beta must be an N x N matrix with entries for the probability of infection between each pair of nodes
-            for edge in self.current_IS_edges.event_list:
+            self.Beta = Beta  # Document: Beta must be an N x N matrix with entries for the probability of infection
+            # between each pair of nodes
+            for edge in self.potential_IS_events.event_list:
                 edge.set_event_rate(self.Beta[edge.left_node.label, edge.right_node.label])
 
     def add_recover_event_rates(self, Gamma):
         if len(Gamma) != self.N:
             raise ValueError(Gamma, 'Gamma vector must be length N to match network size')
         else:
-            self.Gamma = Gamma  # Document: Beta must be an N x N matrix with entries for the probability of infection between each pair of nodes
-            for node in self.current_infected.event_list:
+            self.Gamma = Gamma  # Document: Beta must be an N x N matrix with entries for the probability of
+            # infection between each pair of nodes
+            for node in self.potential_recovery_events.event_list:
                 node.set_event_rate(self.Gamma[node.label])
 
     def run_sim(self):
@@ -99,17 +105,17 @@ class Simulation:
             self.single_step()
 
             self.total_num_timesteps += 1
-            if len(self.current_IS_edges.event_list) == 0:
+            if len(self.potential_IS_events.event_list) == 0:
                 break
 
     def single_step(self, visualize=False):
         if visualize:
             self.visualize_network()
-        event_catolog = [self.current_IS_edges, self.current_infected]
+        event_catolog = [self.potential_IS_events, self.potential_recovery_events]
         tau = draw_tau(event_catolog)
 
         self.time_series.append(self.time_series[-1] + tau)
-        self.real_time_srs_infc.append(len(self.current_infected.event_list))
+        self.real_time_srs_infc.append(len(self.current_infected_nodes))
         self.real_time_srs_rec.append(len(self.recovered_nodes))
 
         event_class = draw_event_class(event_catolog)  # This is returning a whole list of events
@@ -119,43 +125,51 @@ class Simulation:
             if event_class.event_type == eventtype.EventType.INFECTEDSUSCEPTIBLE:  # Todo have events know how to do their own acrobatics
                 infection_event = next_event
                 infection_event.infect()
-                self.current_IS_edges.remove_from_event_list(infection_event)
-                self.current_infected.add_to_event_list(infection_event.right_node)
+                self.potential_IS_events.remove_from_event_list(infection_event)
+                self.potential_recovery_events.add_to_event_list(infection_event.right_node)
+                self.current_infected_nodes.append(infection_event.right_node)
 
                 try:
                     self.gen_collection[infection_event.right_node.generation].append(
-                        infection_event.right_node.label)  # maybe move toward storing actual node objects? but also this could get huge. Could also append a vector that tracks what real time the node became infected too
+                        infection_event.right_node.label)  # maybe move toward storing actual node objects? but also
+                    # this could get huge. Could also append a vector that tracks what real time the node became
+                    # infected too
                 except KeyError:  # Need a better way than KeyError to catch a new generation
                     self.gen_collection[infection_event.right_node.generation] = [infection_event.right_node.label]
                     self.highest_gen += 1
                     self.generational_emergence[self.highest_gen] = self.current_sim_time
                 self.has_been_infected_labels.append(infection_event.right_node.label)
-                self.update_IS_edges()
-                self.add_IS_edges(infection_event.right_node)
+                self.update_IS_events()
+                self.add_IS_events(infection_event.right_node)
             if event_class.event_type == eventtype.EventType.RECOVER:
                 recovery_event = next_event
-                self.current_infected.remove_from_event_list(recovery_event)
+                self.potential_recovery_events.remove_from_event_list(recovery_event)
+                try:
+                    self.current_infected_nodes.remove(recovery_event)
+                except:
+                    print(recovery_event.label)
                 recovery_event.recover()
-                self.update_IS_edges()
+                self.update_IS_events()
                 self.recovered_nodes.append(recovery_event)
         self.current_sim_time += tau
 
-    def update_IS_edges(self):
+    def update_IS_events(self):
         updated_V_IS = []
-        for edge in self.current_IS_edges.event_list:
-            if (edge.left_node.state == 1) and (edge.right_node.state == 0):
+        for edge in self.potential_IS_events.event_list:
+            if (edge.left_node.state == nodestate.NodeState.INFECTED) \
+                    and (edge.right_node.state == nodestate.NodeState.SUSCEPTIBLE):
                 updated_V_IS.append(edge)
-        self.current_IS_edges.event_list = updated_V_IS
+        self.potential_IS_events.event_list = updated_V_IS
 
-    def add_IS_edges(self, infected_node):
+    def add_IS_events(self, infected_node):
         for j in range(0, len(self.A[infected_node.label])):
             if self.A[infected_node.label][j] == 1:
-                candidate_node = network.Node(j, -1, 0, self.Gamma[j])
+                candidate_node = network.Node(j, -1, nodestate.NodeState.SUSCEPTIBLE, self.Gamma[j])
                 neighbor_node = self.existing_node(candidate_node)
-                if neighbor_node.state == 0:
+                if neighbor_node.state == nodestate.NodeState.SUSCEPTIBLE:
                     edge_ij = network.Edge(infected_node, neighbor_node, self.Beta[infected_node.label][j])
                     if not self.edge_list_contains(edge_ij):
-                        self.current_IS_edges.add_to_event_list(edge_ij)
+                        self.potential_IS_events.add_to_event_list(edge_ij)
 
     def existing_node(self, candidate_node):
         for node in self.active_nodes:
@@ -165,34 +179,32 @@ class Simulation:
         return candidate_node
 
     def edge_list_contains(self, edge):
-        for e in self.current_IS_edges.event_list:
+        for e in self.potential_IS_events.event_list:
             if e.equals(edge):
                 return True
         return False
 
     def prune_IS_edges(self):
-        for edge in self.current_IS_edges.event_list:
+        for edge in self.potential_IS_events.event_list:
             try:
                 edge_exists_in_network = (self.A[edge.left_node.label][edge.right_node.label] == 1)
                 if not edge_exists_in_network:
-                    self.current_IS_edges.remove_from_event_list(edge)
+                    self.potential_IS_events.remove_from_event_list(edge)
             except IndexError:
-                self.current_IS_edges.remove_from_event_list(
+                self.potential_IS_events.remove_from_event_list(
                     edge)  # This happens if the new network no longer contains that node, can remove them
 
     def visualize_network(self):
         print('In progress')
 
     def tabulate_generation_results(self, max_gens):
-        # todo would be good to also have a "real time" vector that gives the option to plot that version of a timeseries
-        # do this next in order to compare time intervention vs not, time steps and real time? just real time probably
         gens = max_gens
-        total_infected_time_srs = np.zeros(gens)
+        infection_time_srs_by_gen = np.zeros(gens)
         s = 1
         m = 1
         s_max = 1
         for gen in range(max_gens):  # {0: 1, 1: 12, 14, 2: 16, 42, ....
-            total_infected_time_srs[gen] = s
+            infection_time_srs_by_gen[gen] = s
             try:
                 m = len(self.gen_collection[gen + 1])  # num infected in gen g
                 s += m
@@ -201,7 +213,7 @@ class Simulation:
                 # make m=0 and s=the last s for the rest of the "time series"
                 s = s_max
                 m = 0
-        return total_infected_time_srs
+        return infection_time_srs_by_gen
 
     def tabulate_continuous_time(self, time_buckets=100):
         max_time = max(self.time_series)
@@ -234,6 +246,191 @@ class Simulation:
             print('No values for recovery time series')
 
         return time_partition, infection_time_series, recover_time_series
+
+
+class SimulationSEIR(Simulation):
+    def __init__(self, adjmatrix, max_unitless_sim_time=1000000):
+        super().__init__(adjmatrix, max_unitless_sim_time)
+        self.potential_ES_events = EventList(eventtype.EventType.EXPOSEDSUSCEPTIBLE, [])
+        self.potential_EI_events = EventList(eventtype.EventType.EXPOSEDINFECTED, [])
+        self.current_exposed = []
+        self.real_time_srs_exp = []
+        self.Beta_ExposedSusceptible = None
+        self.Theta_ExposedInfected = None
+        # TODO deal with generations of exposed emergence as well
+        # should probably also determine in the model if there's completely asymptomatic cases as well (E->R events)
+
+    def add_exposed_event_rates(self, Beta_Exp):
+        if len(Beta_Exp) != self.N:
+            raise ValueError(Beta_Exp, 'Beta_Exp matrix must be size N by N to match network size')
+        else:
+            self.Beta_ExposedSusceptible = Beta_Exp  # Document: Beta must be an N x N matrix with entries for the probability of
+            # infection between each pair of nodes
+            for node in self.potential_ES_events.event_list:
+                node.set_event_rate(self.Beta_ExposedSusceptible[node.label])
+
+    def add_exposed_infected_event_rates(self, Theta):
+        if len(Theta) != self.N:
+            raise ValueError(Theta, 'Theta ExposedInfectious vector must be length N to match network size')
+        else:
+            self.Theta_ExposedInfected = Theta  # Document: Beta must be an N x N matrix with entries for the probability of
+            # infection between each pair of nodes
+            for node in self.potential_ES_events.event_list:
+                node.set_event_rate(self.Beta_ExposedSusceptible[node.label])
+
+    def run_sim(self):
+        self.initialize_patient_zero()
+        while self.current_sim_time < self.total_sim_time:
+            # Run one step
+            self.single_step()
+
+            self.total_num_timesteps += 1
+            if (len(self.potential_IS_events.event_list) == 0) and (len(self.potential_ES_events.event_list) == 0):
+                break
+
+    def single_step(self, visualize=False):
+        if visualize:
+            self.visualize_network()
+        event_catolog = [self.potential_IS_events, self.potential_recovery_events, self.potential_ES_events,
+                         self.potential_EI_events]
+        tau = draw_tau(event_catolog)
+
+        self.time_series.append(self.time_series[-1] + tau)
+        self.real_time_srs_infc.append(len(self.current_infected_nodes))
+        self.real_time_srs_rec.append(len(self.recovered_nodes))
+        self.real_time_srs_exp.append(len(self.current_exposed))
+
+        event_class = draw_event_class(event_catolog)  # This is returning a whole list of events
+        if event_class is not None:
+            next_event = draw_event(event_class)
+            if event_class.event_type == eventtype.EventType.INFECTEDSUSCEPTIBLE:  # Todo have events know how to do their own acrobatics
+                infection_event = next_event
+                infection_event.infect()
+                self.potential_IS_events.remove_from_event_list(infection_event)
+                self.current_exposed.append(infection_event.right_node)
+                infection_event.right_node.set_event_rate(self.Theta_ExposedInfected[infection_event.right_node.label])
+                self.potential_EI_events.add_to_event_list(infection_event.right_node)  # TODO modify rate above here
+                try:
+                    # todo make an exposed generational emergence thing as well? maybe.
+                    self.gen_collection[infection_event.right_node.generation].append(
+                        infection_event.right_node.label)  # maybe move toward storing actual node objects? but also
+                    # this could get huge. Could also append a vector that tracks what real time the node became
+                    # infected too
+                except KeyError:  # Need a better way than KeyError to catch a new generation
+                    self.gen_collection[infection_event.right_node.generation] = [infection_event.right_node.label]
+                    self.highest_gen += 1
+                    self.generational_emergence[self.highest_gen] = self.current_sim_time
+                # self.has_been_infected_labels.append(infection_event.right_node.label)
+                self.update_IS_events()
+                self.update_ES_events()
+                self.add_ES_events(infection_event.right_node)  # todo this should be add ES edges actually
+            elif event_class.event_type == eventtype.EventType.EXPOSEDSUSCEPTIBLE:
+                exposure_event = next_event
+                exposure_event.expose()
+                self.potential_ES_events.remove_from_event_list(exposure_event)
+                self.current_exposed.append(exposure_event.right_node)
+                exposure_event.right_node.set_event_rate(self.Theta_ExposedInfected[exposure_event.right_node.label])
+                self.potential_EI_events.add_to_event_list(exposure_event.right_node)  # TODO modify rate above here
+                try:
+                    # todo make an exposed generational emergence thing as well? maybe.
+                    self.gen_collection[exposure_event.right_node.generation].append(
+                        exposure_event.right_node.label)  # maybe move toward storing actual node objects? but also
+                    # this could get huge. Could also append a vector that tracks what real time the node became
+                    # infected too
+                except KeyError:  # Need a better way than KeyError to catch a new generation
+                    self.gen_collection[exposure_event.right_node.generation] = [exposure_event.right_node.label]
+                    self.highest_gen += 1
+                    self.generational_emergence[self.highest_gen] = self.current_sim_time
+                # self.has_been_infected_labels.append(infection_event.right_node.label)
+                self.update_IS_events()
+                self.update_ES_events()
+                self.add_ES_events(exposure_event.right_node)  # todo this should be add ES edges actually
+
+            elif event_class.event_type == eventtype.EventType.EXPOSEDINFECTED:
+                exposed_infected_event = next_event
+                self.potential_EI_events.remove_from_event_list(exposed_infected_event)
+                exposed_infected_event.infect()
+                self.update_IS_events()
+                self.update_ES_events()  # todo hopefully this will be enough to cover it?
+                self.current_infected_nodes.append(exposed_infected_event)
+                self.current_exposed.remove(exposed_infected_event)
+                # todo need to add IS events
+                self.add_IS_events(exposed_infected_event)
+
+            elif event_class.event_type == eventtype.EventType.RECOVER:
+                recovery_event = next_event
+                self.potential_recovery_events.remove_from_event_list(recovery_event)
+                recovery_event.recover()
+                self.update_IS_events()
+                self.recovered_nodes.append(recovery_event)
+                self.current_infected_nodes.remove(recovery_event)
+
+        self.current_sim_time += tau
+
+    def update_ES_events(self):
+        updated_V_ES = []
+        for edge in self.potential_ES_events.event_list:
+            if (edge.left_node.state == nodestate.NodeState.EXPOSED) \
+                    and (edge.right_node.state == nodestate.NodeState.SUSCEPTIBLE):
+                updated_V_ES.append(edge)
+        self.potential_ES_events.event_list = updated_V_ES
+
+    def add_ES_events(self, infected_node):
+        for j in range(0, len(self.A[infected_node.label])):
+            if self.A[infected_node.label][j] == 1:
+                candidate_node = network.Node(j, -1, nodestate.NodeState.SUSCEPTIBLE, self.Theta_ExposedInfected[j])
+                neighbor_node = self.existing_node(candidate_node)
+                if neighbor_node.state == nodestate.NodeState.SUSCEPTIBLE:
+                    # TODO make sure adding with the correct change rate
+                    edge_ij = network.Edge(infected_node, neighbor_node,
+                                           self.Beta_ExposedSusceptible[infected_node.label][j])
+                    if not self.edge_list_contains(edge_ij):
+                        self.potential_ES_events.add_to_event_list(edge_ij)
+
+    def tabulate_continuous_time(self, time_buckets=100):
+        max_time = max(self.time_series)
+        time_partition = np.linspace(0, max_time + 1, time_buckets, endpoint=False)
+        exposed_time_series = np.zeros(len(time_partition))
+        infection_time_series = np.zeros(len(time_partition))
+        recover_time_series = np.zeros(len(time_partition))
+        ts_length = len(self.time_series)
+
+        try:
+            for t in range(ts_length - 1):
+                real_time_val = self.time_series[t]
+                real_time_infected = self.real_time_srs_infc[t]
+                for idx in range(time_buckets):
+                    upper_val = time_partition[idx]
+                    if real_time_val < upper_val:
+                        infection_time_series[idx] = real_time_infected
+        except IndexError:
+            print('No values for infection time series')
+
+        try:
+            for t in range(ts_length - 1):
+                real_time_val = self.time_series[t]
+                real_time_recovered = self.real_time_srs_rec[t]
+                # determine what index it goes in
+                for idx in range(time_buckets):
+                    upper_val = time_partition[idx]
+                    if real_time_val < upper_val:
+                        recover_time_series[idx] = real_time_recovered
+        except IndexError:
+            print('No values for recovery time series')
+
+        try:
+            for t in range(ts_length - 1):
+                real_time_val = self.time_series[t]
+                real_time_exposed = self.real_time_srs_exp[t]
+                # determine what index it goes in
+                for idx in range(time_buckets):
+                    upper_val = time_partition[idx]
+                    if real_time_val < upper_val:
+                        exposed_time_series[idx] = real_time_exposed
+        except IndexError:
+            print('No values for exposed time series')
+
+        return time_partition, infection_time_series, recover_time_series, exposed_time_series
 
 
 def draw_tau(event_catalog):
