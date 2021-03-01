@@ -74,7 +74,7 @@ class Simulation:
         self.has_been_infected_labels.append(p_zero_idx)
         for j in range(0, len(self.A[0])):
             if self.A[p_zero_idx, j] == 1:
-                neighbor = network.Node(j, -1, 0, event_rate=self.Gamma[j])
+                neighbor = network.Node(j, -1, nodestate.NodeState.SUSCEPTIBLE, event_rate=self.Gamma[j])
                 self.active_nodes.append(neighbor)
                 edge_ij = network.Edge(patient_zero, neighbor,
                                        event_rate=self.Beta[patient_zero.label, neighbor.label])
@@ -305,7 +305,7 @@ class SimulationSEIR(Simulation):
             next_event = draw_event(event_class)
             if event_class.event_type == eventtype.EventType.INFECTEDSUSCEPTIBLE:  # Todo have events know how to do their own acrobatics
                 infection_event = next_event
-                infection_event.infect()
+                infection_event.expose()
                 self.potential_IS_events.remove_from_event_list(infection_event)
                 self.current_exposed.append(infection_event.right_node)
                 infection_event.right_node.set_event_rate(self.Theta_ExposedInfected[infection_event.right_node.label])

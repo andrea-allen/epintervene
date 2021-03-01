@@ -41,7 +41,7 @@ def run():
     nx.draw_networkx_edges(G, pos)
     plt.show()
 
-    A = np.random.random_integers(0, 1, (60, 60))
+    A = np.random.random_integers(0, 1, (100, 100))
     A = (A + A.T) / 2
     np.fill_diagonal(A, 0)
 
@@ -75,9 +75,9 @@ def run():
     # todo make sure all the lists sum to total nodes
     sim = simulation.SimulationSEIR(A)
     Beta_IS = np.full((len(A), len(A)), 0.5)
-    Gamma = np.full(len(A), 0.9)
+    Gamma = np.full(len(A), 1.0)
     Beta_ES = np.full((len(A), len(A)), 0.8)
-    Theta_EI = np.full(len(A), 0.9)
+    Theta_EI = np.full(len(A), 1.0)
     sim.add_infection_event_rates(Beta_IS)
     sim.add_exposed_event_rates(Beta_ES)
     sim.add_recover_event_rates(Gamma)
