@@ -83,6 +83,7 @@ class RandomInterventionSim(simulation.Simulation):
                 break
 
     def intervene(self, reduce_current_edges=False):
+        print('intervening')
         N = len(self.A[0])
         frac_of_network = self.proportion_reduced * N
         how_many = 1

@@ -1,11 +1,23 @@
-
+import time
 import numpy as np
 from epintervene.simobjects import network
 import matplotlib.pyplot as plt
 import networkx as nx
 from epintervene.simobjects import simulation
 from epintervene.simobjects import extended_simulation
+from epintervene.analysis import ensemble
+from epintervene.analysis import plotting
 import math
+
+def ensemble_run():
+    power_law_dd = power_law_degree_distrb()
+    mytime = time.time()
+    ensemble.simulate_intervention_effects(power_law_dd, 'random_vac_40perc_to0gen4', 2000, 10000,
+                                                               0.6, 4, 0.0, .001, prop_reduced=0.4)
+    print('Total, ', time.time()-mytime)
+    plotting.graph_infection_size_distribution_by_gen([2, 6, 10], 110, './../data/', 'random_vac_40perc_to0gen4_size_distrb_per_gen_no_interv.txt'
+                                                      ,'./../data/', 'random_vac_40perc_to0gen4_size_distrb_per_gen_with_interv.txt')
+    plt.show()
 
 def random_vaccination():
     print('Manually testing random vaccination')
