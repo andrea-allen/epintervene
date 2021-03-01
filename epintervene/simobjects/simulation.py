@@ -310,8 +310,8 @@ class Simulation:
 
 
 class SimulationSEIR(Simulation):
-    def __init__(self, adjmatrix, max_unitless_sim_time=1000000):
-        super().__init__(adjmatrix, max_unitless_sim_time)
+    def __init__(self, adjmatrix, max_unitless_sim_time=1000000, membership_groups=None, node_memberships=None):
+        super().__init__(adjmatrix, max_unitless_sim_time, membership_groups=membership_groups, node_memberships=node_memberships)
         self.potential_ES_events = EventList(eventtype.EventType.EXPOSEDSUSCEPTIBLE, [])
         self.potential_EI_events = EventList(eventtype.EventType.EXPOSEDINFECTED, [])
         self.current_exposed = []
@@ -319,6 +319,7 @@ class SimulationSEIR(Simulation):
         self.Beta_ExposedSusceptible = None
         self.Theta_ExposedInfected = None
         self.cont_time_exposed_dict = {}
+        self.membership_time_series_exp = {0: []}
         # TODO deal with generations of exposed emergence as well
         # should probably also determine in the model if there's completely asymptomatic cases as well (E->R events)
 
@@ -340,7 +341,10 @@ class SimulationSEIR(Simulation):
             for node in self.potential_ES_events.event_list:
                 node.set_event_rate(self.Beta_ExposedSusceptible[node.get_label()])
 
-    def run_sim(self):
+    def run_sim(self, with_memberships=False):
+        if with_memberships: self.track_memberships = True
+        if self.track_memberships:
+            self.init_membership_state_time_series()
         self.initialize_patient_zero()
         while self.current_sim_time < self.total_sim_time:
             # Run one step
@@ -363,6 +367,8 @@ class SimulationSEIR(Simulation):
         self.real_time_srs_infc.append(len(self.current_infected_nodes))
         self.real_time_srs_rec.append(len(self.recovered_nodes))
         self.real_time_srs_exp.append(len(self.current_exposed))
+        if self.track_memberships:
+            self.record_membership_states()
 
         event_class = draw_event_class(event_catolog)  # This is returning a whole list of events
         if event_class is not None:
@@ -439,12 +445,32 @@ class SimulationSEIR(Simulation):
         for j in range(0, len(self.A[infected_node.get_label()])):
             if self.A[infected_node.get_label()][j] == 1:
                 candidate_node = network.Node(j, -1, nodestate.NodeState.SUSCEPTIBLE, self.Theta_ExposedInfected[j])
+                if self.track_memberships:
+                    candidate_node.set_membership(self.node_memberships[candidate_node.get_label()])
                 neighbor_node = self.existing_node(candidate_node)
                 if neighbor_node.get_state() == nodestate.NodeState.SUSCEPTIBLE:
                     edge_ij = network.Edge(infected_node, neighbor_node,
                                            self.Beta_ExposedSusceptible[infected_node.get_label()][j])
                     if not self.edge_list_contains(edge_ij):
                         self.potential_ES_events.add_to_event_list(edge_ij)
+    def record_membership_states(self):
+        # TODO assign a time series vector for number of groups for membership
+        # ex. current_infected_group2.append(len(current_infected_nodes where membership==group2)
+        for group in self.membership_groups:
+            infected_in_group = list(node for node in self.current_infected_nodes if node.get_membership() == group)
+            self.membership_time_series_infc[group].append(len(infected_in_group))
+            exposed_in_group = list(node for node in self.current_exposed if node.get_membership() == group)
+            self.membership_time_series_exp[group].append(len(exposed_in_group))
+        # maybe don't worry about recovery? need to change the list of recovered nodes to be whole Node objects,
+        # not just labels
+        # self.real_time_srs_rec.append(len(self.recovered_nodes))
+
+    def init_membership_state_time_series(self):
+        self.membership_time_series_infc = {}
+        for group in self.membership_groups:
+            self.membership_time_series_infc[group] = []
+            self.membership_time_series_rec[group] = []
+            self.membership_time_series_exp[group] = []
 
     def tabulate_continuous_time(self, time_buckets=100):
         max_time = max(self.time_series)
@@ -490,6 +516,47 @@ class SimulationSEIR(Simulation):
             print('No values for exposed time series')
 
         return time_partition, infection_time_series, recover_time_series, exposed_time_series
+
+    def tabulate_continuous_time_with_groups(self, time_buckets=100):
+        max_time = max(self.time_series)
+        time_partition = np.linspace(0, max_time + 1, time_buckets, endpoint=False)
+        infection_time_series = {}
+        exposed_time_series = {}
+        for group in self.membership_groups:
+            infection_time_series[group] = np.zeros(len(time_partition))
+            exposed_time_series[group] = np.zeros(len(time_partition))
+        # TODO tbd grouped recovery
+        # recover_time_series = np.zeros(len(time_partition))
+        ts_length = len(self.time_series)
+
+        try:
+            for t in range(ts_length - 1):
+                for group in self.membership_groups:
+                    real_time_val = self.time_series[t]
+                    real_time_infected = self.membership_time_series_infc[group][t]
+                    real_time_exposed = self.membership_time_series_exp[group][t]
+                    for idx in range(time_buckets):
+                        upper_val = time_partition[idx]
+                        if real_time_val < upper_val:
+                            infection_time_series[group][idx] = real_time_infected
+                            exposed_time_series[group][idx] = real_time_exposed
+        except IndexError:
+            print('No values for infection time series')
+
+            # TODO tbd for recovery
+            # try:
+            #     for t in range(ts_length - 1):
+            #         real_time_val = self.time_series[t]
+            #         real_time_recovered = self.real_time_srs_rec[t]
+            #         # determine what index it goes in
+            #         for idx in range(time_buckets):
+            #             upper_val = time_partition[idx]
+            #             if real_time_val < upper_val:
+            #                 recover_time_series[idx] = real_time_recovered
+            # except IndexError:
+            print('No values for recovery time series')
+
+        return time_partition, infection_time_series, exposed_time_series
 
 
 def draw_tau(event_catalog):

@@ -13,10 +13,6 @@ def sbm_membership():
     res_pop = int(len(A)/3)
     county_pop = int(len(A)/3)
 
-    staff_range = np.arange(0, staff_pop)
-    res_range = np.arange(staff_pop, staff_pop+res_pop)
-    county_range = np.arange(staff_pop+res_pop, staff_pop+res_pop+county_pop)
-
     node_membership_vector = []
     for i in range(staff_pop):
         node_membership_vector.append('staff')
@@ -59,8 +55,8 @@ def sbm_membership():
 
 
     # SEIR model sandbox
-    # todo make sure all the lists sum to total nodes
-    sim = simulation.SimulationSEIR(A)
+    # todo add membership feature for infected and exposed to SEIR model
+    sim = simulation.SimulationSEIR(A, node_memberships=node_membership_vector, membership_groups=['staff', 'residents', 'county'])
     Beta_IS = np.full((len(A), len(A)), 0.25)
     Gamma = np.full(len(A), 1.0)
     Beta_ES = np.full((len(A), len(A)), 0.25)
@@ -69,7 +65,21 @@ def sbm_membership():
     sim.add_exposed_event_rates(Beta_ES)
     sim.add_recover_event_rates(Gamma)
     sim.add_exposed_infected_event_rates(Theta_EI)
-    sim.run_sim()
+
+    sim.run_sim(with_memberships=True)
+
+    ts, membership_ts_infc, membership_ts_exp = sim.tabulate_continuous_time_with_groups(10000)
+    plt.figure(0)
+    for group in membership_ts_infc.keys():
+        plt.plot(ts, membership_ts_infc[group], label=group)
+        plt.plot(ts, membership_ts_exp[group], label=group, ls='--')
+    plt.xlabel('Time t')
+    plt.ylabel('Number of nodes infected in network group')
+    plt.legend(loc='upper left')
+    plt.show()
+
+
+
     ts, infect_ts, recover_ts, exposed_ts = sim.tabulate_continuous_time(1000)
 
     plt.figure(1)
