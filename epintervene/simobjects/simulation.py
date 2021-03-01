@@ -28,7 +28,7 @@ class EventList:
 
 
 class Simulation:
-    def __init__(self, adj_matrix, max_unitless_sim_time=1000000):
+    def __init__(self, adj_matrix, max_unitless_sim_time=1000000, membership_groups=None, node_memberships=None):
         self.total_sim_time = max_unitless_sim_time
         self.current_sim_time = 0
         self.A = adj_matrix
@@ -38,17 +38,21 @@ class Simulation:
         self.potential_IS_events = EventList(eventtype.EventType.INFECTEDSUSCEPTIBLE, [])
         self.potential_recovery_events = EventList(eventtype.EventType.RECOVER, [])
         self.recovered_nodes = []
-        self.current_infected_nodes = []  # for curre
+        self.current_infected_nodes = []
         self.has_been_infected_labels = []  # Can you get rid of this and just count up who's in current infected or current recovered? (or exposed for that model)
         self.highest_gen = 0
-        self.gen_collection = {}  # I think this should be kept because it's what sets apart this sim framework as
-        # unique
-        self.active_nodes = []  # add documentation
+        self.gen_collection = {}
+        self.active_nodes = []
         self.total_num_timesteps = 0
         self.time_series = [0]
         self.real_time_srs_infc = []
         self.real_time_srs_rec = []
         self.generational_emergence = {0: 0}
+        self.membership_groups = membership_groups
+        self.membership_time_series_infc = {0: []}
+        self.membership_time_series_rec = {0: []}
+        self.track_memberships = False
+        self.node_memberships = node_memberships
 
     def initialize_patient_zero(self):
         N = len(self.A[0])
@@ -60,11 +64,13 @@ class Simulation:
             raise AttributeError(self.Beta,
                                  'Please provide an infection rate matrix Beta to the simulation via the add_infection_event_rates method')
         patient_zero = network.Node(p_zero_idx, 0, nodestate.NodeState.INFECTED, event_rate=self.Gamma[p_zero_idx])
+        if self.track_memberships:
+            patient_zero.set_membership(self.node_memberships[p_zero_idx])
         self.active_nodes.append(patient_zero)
         self.current_infected_nodes.append(patient_zero)
         self.gen_collection[0] = [p_zero_idx]
         self.potential_recovery_events.add_to_event_list(patient_zero)
-        self.has_been_infected_labels.append(p_zero_idx)
+        self.has_been_infected_labels.append(p_zero_idx)  # TODO do we still need this?
         for j in range(0, len(self.A[0])):
             if self.A[p_zero_idx, j] == 1:
                 neighbor = network.Node(j, -1, nodestate.NodeState.SUSCEPTIBLE, event_rate=self.Gamma[j])
@@ -91,7 +97,10 @@ class Simulation:
             for node in self.potential_recovery_events.event_list:
                 node.set_event_rate(self.Gamma[node.get_label()])
 
-    def run_sim(self):
+    def run_sim(self, with_memberships=False):
+        if with_memberships: self.track_memberships = True
+        if self.track_memberships:
+            self.init_membership_state_time_series()
         self.initialize_patient_zero()
         while self.current_sim_time < self.total_sim_time:
             # Run one step
@@ -110,6 +119,8 @@ class Simulation:
         self.time_series.append(self.time_series[-1] + tau)
         self.real_time_srs_infc.append(len(self.current_infected_nodes))
         self.real_time_srs_rec.append(len(self.recovered_nodes))
+        if self.track_memberships:
+            self.record_membership_states()
 
         event_class = draw_event_class(event_catolog)  # This is returning a whole list of events
         if event_class is not None:
@@ -128,7 +139,8 @@ class Simulation:
                     # this could get huge. Could also append a vector that tracks what real time the node became
                     # infected too
                 except KeyError:  # Need a better way than KeyError to catch a new generation
-                    self.gen_collection[infection_event.get_right_node().get_generation()] = [infection_event.get_right_node().get_label()]
+                    self.gen_collection[infection_event.get_right_node().get_generation()] = [
+                        infection_event.get_right_node().get_label()]
                     self.highest_gen += 1
                     self.generational_emergence[self.highest_gen] = self.current_sim_time
                 self.has_been_infected_labels.append(infection_event.get_right_node().get_label())
@@ -158,6 +170,8 @@ class Simulation:
         for j in range(0, len(self.A[infected_node.get_label()])):
             if self.A[infected_node.get_label()][j] == 1:
                 candidate_node = network.Node(j, -1, nodestate.NodeState.SUSCEPTIBLE, self.Gamma[j])
+                if self.track_memberships:
+                    candidate_node.set_membership(self.node_memberships[candidate_node.get_label()])
                 neighbor_node = self.existing_node(candidate_node)
                 if neighbor_node.get_state() == nodestate.NodeState.SUSCEPTIBLE:
                     edge_ij = network.Edge(infected_node, neighbor_node, self.Beta[infected_node.get_label()][j])
@@ -180,12 +194,29 @@ class Simulation:
     def prune_IS_edges(self):
         for edge in self.potential_IS_events.event_list:
             try:
-                edge_exists_in_network = (self.A[edge.get_left_node().get_label()][edge.get_right_node().get_label()] == 1)
+                edge_exists_in_network = (
+                        self.A[edge.get_left_node().get_label()][edge.get_right_node().get_label()] == 1)
                 if not edge_exists_in_network:
                     self.potential_IS_events.remove_from_event_list(edge)
             except IndexError:
                 self.potential_IS_events.remove_from_event_list(
                     edge)  # This happens if the new network no longer contains that node, can remove them
+
+    def record_membership_states(self):
+        # TODO assign a time series vector for number of groups for membership
+        # ex. current_infected_group2.append(len(current_infected_nodes where membership==group2)
+        for group in self.membership_groups:
+            infected_in_group = list(node for node in self.current_infected_nodes if node.get_membership() == group)
+            self.membership_time_series_infc[group].append(len(infected_in_group))
+        # maybe don't worry about recovery? need to change the list of recovered nodes to be whole Node objects,
+        # not just labels
+        # self.real_time_srs_rec.append(len(self.recovered_nodes))
+
+    def init_membership_state_time_series(self):
+        self.membership_time_series_infc = {}
+        for group in self.membership_groups:
+            self.membership_time_series_infc[group] = []
+            self.membership_time_series_rec[group] = []
 
     def visualize_network(self):
         print('In progress')
@@ -240,6 +271,43 @@ class Simulation:
 
         return time_partition, infection_time_series, recover_time_series
 
+    def tabulate_continuous_time_with_groups(self, time_buckets=100):
+        max_time = max(self.time_series)
+        time_partition = np.linspace(0, max_time + 1, time_buckets, endpoint=False)
+        infection_time_series = {}
+        for group in self.membership_groups:
+            infection_time_series[group] = np.zeros(len(time_partition))
+        # TODO tbd grouped recovery
+        # recover_time_series = np.zeros(len(time_partition))
+        ts_length = len(self.time_series)
+
+        try:
+            for t in range(ts_length - 1):
+                for group in self.membership_groups:
+                    real_time_val = self.time_series[t]
+                    real_time_infected = self.membership_time_series_infc[group][t]
+                    for idx in range(time_buckets):
+                        upper_val = time_partition[idx]
+                        if real_time_val < upper_val:
+                            infection_time_series[group][idx] = real_time_infected
+        except IndexError:
+            print('No values for infection time series')
+
+            # TODO tbd for recovery
+            # try:
+            #     for t in range(ts_length - 1):
+            #         real_time_val = self.time_series[t]
+            #         real_time_recovered = self.real_time_srs_rec[t]
+            #         # determine what index it goes in
+            #         for idx in range(time_buckets):
+            #             upper_val = time_partition[idx]
+            #             if real_time_val < upper_val:
+            #                 recover_time_series[idx] = real_time_recovered
+            # except IndexError:
+            print('No values for recovery time series')
+
+        return time_partition, infection_time_series
+
 
 class SimulationSEIR(Simulation):
     def __init__(self, adjmatrix, max_unitless_sim_time=1000000):
@@ -250,6 +318,7 @@ class SimulationSEIR(Simulation):
         self.real_time_srs_exp = []
         self.Beta_ExposedSusceptible = None
         self.Theta_ExposedInfected = None
+        self.cont_time_exposed_dict = {}
         # TODO deal with generations of exposed emergence as well
         # should probably also determine in the model if there's completely asymptomatic cases as well (E->R events)
 
@@ -279,7 +348,7 @@ class SimulationSEIR(Simulation):
 
             self.total_num_timesteps += 1
             if (len(self.potential_IS_events.event_list) == 0) \
-                    and (len(self.potential_ES_events.event_list) == 0)\
+                    and (len(self.potential_ES_events.event_list) == 0) \
                     and (len(self.potential_EI_events.event_list) == 0):
                 break
 
@@ -298,24 +367,22 @@ class SimulationSEIR(Simulation):
         event_class = draw_event_class(event_catolog)  # This is returning a whole list of events
         if event_class is not None:
             next_event = draw_event(event_class)
-            if event_class.event_type == eventtype.EventType.INFECTEDSUSCEPTIBLE:  # Todo have events know how to do their own acrobatics
+            if event_class.event_type == eventtype.EventType.INFECTEDSUSCEPTIBLE:
                 infection_event = next_event
                 infection_event.expose()
                 self.potential_IS_events.remove_from_event_list(infection_event)
                 self.current_exposed.append(infection_event.get_right_node())
-                infection_event.get_right_node().set_event_rate(self.Theta_ExposedInfected[infection_event.get_right_node().get_label()])
-                self.potential_EI_events.add_to_event_list(infection_event.get_right_node())  # TODO modify rate above here
+                infection_event.get_right_node().set_event_rate(
+                    self.Theta_ExposedInfected[infection_event.get_right_node().get_label()])
+                self.potential_EI_events.add_to_event_list(infection_event.get_right_node())
                 try:
-                    # todo make an exposed generational emergence thing as well? maybe.
                     self.gen_collection[infection_event.get_right_node().get_generation()].append(
-                        infection_event.get_right_node().get_label())  # maybe move toward storing actual node objects? but also
-                    # this could get huge. Could also append a vector that tracks what real time the node became
-                    # infected too
+                        infection_event.get_right_node().get_label())
                 except KeyError:  # Need a better way than KeyError to catch a new generation
-                    self.gen_collection[infection_event.get_right_node().get_generation()] = [infection_event.get_right_node().get_label()]
+                    self.gen_collection[infection_event.get_right_node().get_generation()] = [
+                        infection_event.get_right_node().get_label()]
                     self.highest_gen += 1
                     self.generational_emergence[self.highest_gen] = self.current_sim_time
-                # self.has_been_infected_labels.append(infection_event.get_right_node().get_label())
                 self.update_IS_events()
                 self.update_ES_events()
                 self.add_ES_events(infection_event.get_right_node())  # todo this should be add ES edges actually
@@ -324,32 +391,30 @@ class SimulationSEIR(Simulation):
                 exposure_event.expose()
                 self.potential_ES_events.remove_from_event_list(exposure_event)
                 self.current_exposed.append(exposure_event.get_right_node())
-                exposure_event.get_right_node().set_event_rate(self.Theta_ExposedInfected[exposure_event.get_right_node().get_label()])
-                self.potential_EI_events.add_to_event_list(exposure_event.get_right_node())  # TODO modify rate above here
+                exposure_event.get_right_node().set_event_rate(
+                    self.Theta_ExposedInfected[exposure_event.get_right_node().get_label()])
+                self.potential_EI_events.add_to_event_list(
+                    exposure_event.get_right_node())  # TODO modify rate above here
                 try:
-                    # todo make an exposed generational emergence thing as well? maybe.
                     self.gen_collection[exposure_event.get_right_node().get_generation()].append(
-                        exposure_event.get_right_node().get_label())  # maybe move toward storing actual node objects? but also
-                    # this could get huge. Could also append a vector that tracks what real time the node became
-                    # infected too
+                        exposure_event.get_right_node().get_label())
                 except KeyError:  # Need a better way than KeyError to catch a new generation
-                    self.gen_collection[exposure_event.get_right_node().get_generation()] = [exposure_event.get_right_node().get_label()]
+                    self.gen_collection[exposure_event.get_right_node().get_generation()] = [
+                        exposure_event.get_right_node().get_label()]
                     self.highest_gen += 1
                     self.generational_emergence[self.highest_gen] = self.current_sim_time
-                # self.has_been_infected_labels.append(infection_event.get_right_node().get_label())
                 self.update_IS_events()
                 self.update_ES_events()
-                self.add_ES_events(exposure_event.get_right_node())  # todo this should be add ES edges actually
+                self.add_ES_events(exposure_event.get_right_node())
 
             elif event_class.event_type == eventtype.EventType.EXPOSEDINFECTED:
                 exposed_infected_event = next_event
                 self.potential_EI_events.remove_from_event_list(exposed_infected_event)
                 exposed_infected_event.infect()
                 self.update_IS_events()
-                self.update_ES_events()  # todo hopefully this will be enough to cover it?
+                self.update_ES_events()
                 self.current_infected_nodes.append(exposed_infected_event)
                 self.current_exposed.remove(exposed_infected_event)
-                # todo need to add IS events
                 self.add_IS_events(exposed_infected_event)
 
             elif event_class.event_type == eventtype.EventType.RECOVER:
@@ -376,7 +441,6 @@ class SimulationSEIR(Simulation):
                 candidate_node = network.Node(j, -1, nodestate.NodeState.SUSCEPTIBLE, self.Theta_ExposedInfected[j])
                 neighbor_node = self.existing_node(candidate_node)
                 if neighbor_node.get_state() == nodestate.NodeState.SUSCEPTIBLE:
-                    # TODO make sure adding with the correct change rate
                     edge_ij = network.Edge(infected_node, neighbor_node,
                                            self.Beta_ExposedSusceptible[infected_node.get_label()][j])
                     if not self.edge_list_contains(edge_ij):
