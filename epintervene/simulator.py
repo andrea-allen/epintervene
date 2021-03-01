@@ -7,4 +7,5 @@ def run():
     print('Saving sample output')
     sample_data = [1, 2, 3]
     np.savetxt('./../data/sample_output.txt', np.array(sample_data))
-    sandbox.sbm_membership()
+    sandbox.random_vaccination()
+    # sandbox.sbm_membership()

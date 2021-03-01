@@ -4,6 +4,40 @@ from epintervene.simobjects import network
 import matplotlib.pyplot as plt
 import networkx as nx
 from epintervene.simobjects import simulation
+from epintervene.simobjects import extended_simulation
+import math
+
+def random_vaccination():
+    print('Manually testing random vaccination')
+    nb = network.NetworkBuilder
+    powerlaw = power_law_degree_distrb()
+    G, pos = nb.from_degree_distribution(10000, powerlaw)
+    A = np.array(nx.adjacency_matrix(G).todense())
+    # TODO need to make sure this isn't messing with the simulation run time
+    sim = extended_simulation.RandomInterventionSim(A)
+    Beta = np.full((len(A), len(A)), 0.9)
+    Gamma = np.full(len(A), 0.001)
+    sim.add_infection_event_rates(Beta)
+    sim.add_recover_event_rates(Gamma)
+    sim.configure_intervention(intervention_gen=4, beta_redux=0.0, proportion_reduced=0.2)
+    sim.run_sim()
+
+    ts, infect_ts, recover_ts = sim.tabulate_continuous_time(1000)
+    plt.figure(1)
+    plt.plot(ts, infect_ts, color='blue', label='Infected')
+    plt.plot(ts, recover_ts, color='green', label='Recovered')
+    plt.xlabel('Time t')
+    plt.ylabel('Number of nodes in class')
+    plt.legend(loc='upper left')
+    # plt.show()
+
+    ts_by_gen = sim.tabulate_generation_results(20)
+    plt.figure(2)
+    plt.plot(np.arange(len(ts_by_gen)), ts_by_gen)
+    plt.scatter(np.arange(len(ts_by_gen)), ts_by_gen)
+    plt.xlabel('Generation number')
+    plt.ylabel('Cumulative infections by generation')
+    plt.show()
 
 def sbm_membership():
     G, pos, A = create_stochastic_block_model()
@@ -27,7 +61,7 @@ def sbm_membership():
     sim.add_recover_event_rates(Gamma)
     sim.run_sim(with_memberships=True)
 
-    ts, membership_ts_infc = sim.tabulate_continuous_time_with_groups(10000)
+    ts, membership_ts_infc = sim.tabulate_continuous_time_with_groups(1000)
     plt.figure(0)
     for group in membership_ts_infc.keys():
         plt.plot(ts, membership_ts_infc[group], label=group)
@@ -68,11 +102,12 @@ def sbm_membership():
 
     sim.run_sim(with_memberships=True)
 
-    ts, membership_ts_infc, membership_ts_exp = sim.tabulate_continuous_time_with_groups(10000)
+    ts, membership_ts_infc, membership_ts_exp = sim.tabulate_continuous_time_with_groups(1000)
     plt.figure(0)
+    colors = {'staff':'blue', 'residents':'red', 'county':'orange'}
     for group in membership_ts_infc.keys():
-        plt.plot(ts, membership_ts_infc[group], label=group)
-        plt.plot(ts, membership_ts_exp[group], label=group, ls='--')
+        plt.plot(ts, membership_ts_infc[group], label=group, color=colors[group])
+        plt.plot(ts, membership_ts_exp[group], label=group, ls='--', color=colors[group])
     plt.xlabel('Time t')
     plt.ylabel('Number of nodes infected in network group')
     plt.legend(loc='upper left')
@@ -198,7 +233,7 @@ def run():
     return A
 
 def create_stochastic_block_model():
-    A = np.zeros((120, 120))
+    A = np.zeros((300, 300))
     staff_block = 0.8
     residents_block = 0.9
     county_block = 0.1
@@ -252,6 +287,14 @@ def create_stochastic_block_model():
     nx.draw_networkx_edges(G, pos)
     plt.show()
     return G, pos, A
+
+def power_law_degree_distrb(maxk=40, alpha=2, mu=5):
+    p_k = np.empty(maxk)
+    p_k[0] = 0
+    for k in range(1, maxk):
+        p_k[k] = (k ** (-alpha)) * (math.e ** (-k / mu))
+    p_k = p_k / np.sum(p_k)
+    return p_k
 
 
 
