@@ -278,7 +278,9 @@ class SimulationSEIR(Simulation):
             self.single_step()
 
             self.total_num_timesteps += 1
-            if (len(self.potential_IS_events.event_list) == 0) and (len(self.potential_ES_events.event_list) == 0):
+            if (len(self.potential_IS_events.event_list) == 0) \
+                    and (len(self.potential_ES_events.event_list) == 0)\
+                    and (len(self.potential_EI_events.event_list) == 0):
                 break
 
     def single_step(self, visualize=False):

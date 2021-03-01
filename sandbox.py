@@ -74,9 +74,9 @@ def run():
     # SEIR model sandbox
     # todo make sure all the lists sum to total nodes
     sim = simulation.SimulationSEIR(A)
-    Beta_IS = np.full((len(A), len(A)), 0.5)
+    Beta_IS = np.full((len(A), len(A)), 0.25)
     Gamma = np.full(len(A), 1.0)
-    Beta_ES = np.full((len(A), len(A)), 0.8)
+    Beta_ES = np.full((len(A), len(A)), 0.25)
     Theta_EI = np.full(len(A), 1.0)
     sim.add_infection_event_rates(Beta_IS)
     sim.add_exposed_event_rates(Beta_ES)
