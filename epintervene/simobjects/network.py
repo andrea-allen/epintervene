@@ -6,32 +6,53 @@ from epintervene.simobjects import nodestate
 
 class Node:
     def __init__(self, label, generation, state, event_rate):
-        self.generation = generation
-        self.label = label
-        self.state = state
-        self.event_rate = event_rate
+        self._generation = generation
+        self._label = label
+        self._state = state
+        self._event_rate = event_rate
+        self._membership = None
 
     def infect(self):
-        self.state = nodestate.NodeState.INFECTED
+        self._state = nodestate.NodeState.INFECTED
 
     def recover(self):
-        self.state = nodestate.NodeState.RECOVERED
+        self._state = nodestate.NodeState.RECOVERED
 
     def expose(self):
-        self.state = nodestate.NodeState.EXPOSED
+        self._state = nodestate.NodeState.EXPOSED
+
+    def get_label(self):
+        return self._label
+
+    def get_generation(self):
+        return self._generation
+
+    def get_state(self):
+        return self._state
+
+    def get_event_rate(self):
+        return self._event_rate
+
+    def get_membership(self):
+        return self._membership
 
     def set_generation(self, g):
-        self.generation = g
+        self._generation = g
 
-    def set_event_rate(self, event_rate): #keep re-setting this no matter if the next phase is recovery or exposure to infection
-        self.event_rate = event_rate
+    def set_event_rate(self, event_rate):
+        self._event_rate = event_rate
 
     def display_info(self):
-        print('Node index: ', self.label, ' state: ', self.state, ' event_rate: ', self.event_rate, ' gen: ',
-              self.generation)
+        print('Node index: ', self._label, ' state: ', self._state, ' event_rate: ', self._event_rate, ' gen: ',
+              self._generation, 'membership: ', self._membership)
+
+    # Give Nodes an option for network class membership, for example in multilayer network or SBM
+    # Because Python isn't strongly typed, this can be an int, a float, a string or an Enum
+    def set_membership(self, membership):
+        self._membership = membership
 
     def equals(self, node):
-        if self.label == node.label:
+        if self._label == node.get_label():
             return True
         else:
             return False
@@ -39,29 +60,38 @@ class Node:
 
 class Edge:
     def __init__(self, left_node, right_node, event_rate):
-        self.left_node = left_node  # not just an index, this is a whole Node object
-        self.right_node = right_node
-        self.event_rate = event_rate
+        self._left_node = left_node  # not just an index, this is a whole Node object
+        self._right_node = right_node
+        self._event_rate = event_rate
 
     def infect(self):
-        self.right_node.infect()
-        self.right_node.set_generation(self.left_node.generation + 1)
+        self._right_node.infect()
+        self._right_node.set_generation(self._left_node.get_generation() + 1)
 
     def expose(self):
-        self.right_node.expose()
-        self.right_node.set_generation(self.left_node.generation + 1)
+        self._right_node.expose()
+        self._right_node.set_generation(self._left_node.get_generation() + 1)
 
     def set_event_rate(self, event_rate):
-        self.event_rate = event_rate
+        self._event_rate = event_rate
+
+    def get_event_rate(self):
+        return self._event_rate
+
+    def get_right_node(self):
+        return self._right_node
+
+    def get_left_node(self):
+        return self._left_node
 
     def display_info(self):
-        print('Edge with event rate: ', self.event_rate, ' nodes:')
-        self.left_node.display_info()
-        self.right_node.display_info()
+        print('Edge with event rate: ', self._event_rate, ' nodes:')
+        self._left_node.display_info()
+        self._right_node.display_info()
 
     def equals(self, other_edge):
         # Imperative to use Node class equality here
-        if self.left_node.equals(other_edge.left_node) and self.right_node.equals(other_edge.right_node):
+        if self._left_node.equals(other_edge._left_node) and self._right_node.equals(other_edge._right_node):
             return True
         else:
             return False

@@ -61,18 +61,18 @@ class TestSimulation(unittest.TestCase):
 
         print('after single step')
         self.assertEqual(len(sim.potential_recovery_events.event_list), 2)
-        infected_nodes = list(map(lambda node: node.label, sim.potential_recovery_events.event_list))
+        infected_nodes = list(map(lambda node: node.get_label(), sim.potential_recovery_events.event_list))
         for edge in sim.potential_IS_events.event_list:
-            self.assertIn(edge.left_node.label, infected_nodes)
-            self.assertNotIn(edge.right_node.label, infected_nodes)
+            self.assertIn(edge.get_left_node().get_label(), infected_nodes)
+            self.assertNotIn(edge.get_right_node().get_label(), infected_nodes)
         if len(sim.potential_IS_events.event_list) > 0:
             sim.single_step()
             print('after second single step')
             self.assertEqual(len(sim.potential_recovery_events.event_list), 3)
-            infected_nodes = list(map(lambda node: node.label, sim.potential_recovery_events.event_list))
+            infected_nodes = list(map(lambda node: node.get_label(), sim.potential_recovery_events.event_list))
             for edge in sim.potential_IS_events.event_list:
-                self.assertIn(edge.left_node.label, infected_nodes)
-                self.assertNotIn(edge.right_node.label, infected_nodes)
+                self.assertIn(edge.get_left_node().get_label(), infected_nodes)
+                self.assertNotIn(edge.get_right_node().get_label(), infected_nodes)
 
 if __name__ == '__main__':
     unittest.main()
