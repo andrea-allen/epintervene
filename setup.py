@@ -1,11 +1,14 @@
-from setuptools import setup, find_packages
+from setuptools import find_packages
+import setuptools
 
 VERSION = '0.0.1'
 DESCRIPTION = 'EpIntervene Simulation Package'
 LONG_DESCRIPTION = 'Working version of EpIntervene package, for simulating SIR and SEIR Epidemics with or without interventions'
 
-# Setting up
-setup(
+with open("README.md", "r", encoding="utf-8") as fh:
+    long_description = fh.read()
+
+setuptools.setup(
     name="epintervene",
     version=VERSION,
     author="Andrea Allen",
@@ -24,5 +27,6 @@ setup(
         "Programming Language :: Python :: 3",
         "Operating System :: MacOS :: MacOS X",
         "Operating System :: Microsoft :: Windows",
-    ]
+    ],
+    python_requires=">=3.6",
 )
