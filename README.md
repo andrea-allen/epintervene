@@ -174,4 +174,4 @@ An Edge also can double as an Event, equipped with an Event Rate (infection rate
 ## Examples
 Coming soon.
 
-![alt text](https://github.com/andrea-allen/epintervene/docs/sample_img.png?raw=true)
+![alt text](https://github.com/andrea-allen/epintervene/blob/main/docs/sample_img.png?raw=true)
