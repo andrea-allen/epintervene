@@ -5,13 +5,6 @@ from epintervene.simobjects import eventtype
 from epintervene.simobjects import nodestate
 
 
-class Event:
-    def __init__(self, event_name, event_rate):
-        # create classes of events such as IS events (infected to susceptible event) and give it a rate parameter
-        self.event_rate = event_rate
-        self.event_name = event_name
-
-
 class EventList:
     def __init__(self, event_type, event_list):
         self.event_list = event_list
@@ -39,7 +32,6 @@ class Simulation:
         self.potential_recovery_events = EventList(eventtype.EventType.RECOVER, [])
         self.recovered_nodes = []
         self.current_infected_nodes = []
-        self.has_been_infected_labels = []  # Can you get rid of this and just count up who's in current infected or current recovered? (or exposed for that model)
         self.highest_gen = 0
         self.gen_collection = {}
         self.active_nodes = []
@@ -59,10 +51,12 @@ class Simulation:
         p_zero_idx = random.randint(0, N - 1)
         if self.Gamma is None:
             raise AttributeError(self.Gamma,
-                                 'Please provide a recovery vector Gamma to the simulation via the add_recover_event_rates method')
+                                 'Please provide a recovery vector Gamma to the simulation via the '
+                                 'add_recover_event_rates method')
         if self.Beta is None:
             raise AttributeError(self.Beta,
-                                 'Please provide an infection rate matrix Beta to the simulation via the add_infection_event_rates method')
+                                 'Please provide an infection rate matrix Beta to the simulation via the '
+                                 'add_infection_event_rates method')
         patient_zero = network.Node(p_zero_idx, 0, nodestate.NodeState.INFECTED, event_rate=self.Gamma[p_zero_idx])
         if self.track_memberships:
             patient_zero.set_membership(self.node_memberships[p_zero_idx])
@@ -70,7 +64,6 @@ class Simulation:
         self.current_infected_nodes.append(patient_zero)
         self.gen_collection[0] = [p_zero_idx]
         self.potential_recovery_events.add_to_event_list(patient_zero)
-        self.has_been_infected_labels.append(p_zero_idx)  # TODO do we still need this?
         for j in range(0, len(self.A[0])):
             if self.A[p_zero_idx, j] == 1:
                 neighbor = network.Node(j, -1, nodestate.NodeState.SUSCEPTIBLE, event_rate=self.Gamma[j])
@@ -98,6 +91,7 @@ class Simulation:
                 node.set_event_rate(self.Gamma[node.get_label()])
 
     def run_sim(self, with_memberships=False):
+        # TODO function to clear!
         if with_memberships: self.track_memberships = True
         if self.track_memberships:
             self.init_membership_state_time_series()
@@ -124,9 +118,8 @@ class Simulation:
 
         event_class = draw_event_class(event_catolog)  # This is returning a whole list of events
         if event_class is not None:
-            next_event = draw_event(
-                event_class)  # Have a type that is an EventList class that contains Type, and the list of events
-            if event_class.event_type == eventtype.EventType.INFECTEDSUSCEPTIBLE:  # Todo have events know how to do their own acrobatics
+            next_event = draw_event(event_class)
+            if event_class.event_type == eventtype.EventType.INFECTEDSUSCEPTIBLE:
                 infection_event = next_event
                 infection_event.infect()
                 self.potential_IS_events.remove_from_event_list(infection_event)
@@ -135,15 +128,12 @@ class Simulation:
 
                 try:
                     self.gen_collection[infection_event.get_right_node().get_generation()].append(
-                        infection_event.get_right_node().get_label())  # maybe move toward storing actual node objects? but also
-                    # this could get huge. Could also append a vector that tracks what real time the node became
-                    # infected too
+                        infection_event.get_right_node().get_label())
                 except KeyError:  # Need a better way than KeyError to catch a new generation
                     self.gen_collection[infection_event.get_right_node().get_generation()] = [
                         infection_event.get_right_node().get_label()]
                     self.highest_gen += 1
                     self.generational_emergence[self.highest_gen] = self.current_sim_time
-                self.has_been_infected_labels.append(infection_event.get_right_node().get_label())
                 self.update_IS_events()
                 self.add_IS_events(infection_event.get_right_node())
             if event_class.event_type == eventtype.EventType.RECOVER:
@@ -159,12 +149,12 @@ class Simulation:
         self.current_sim_time += tau
 
     def update_IS_events(self):
-        updated_V_IS = []
+        updated_IS_events = []
         for edge in self.potential_IS_events.event_list:
             if (edge.get_left_node().get_state() == nodestate.NodeState.INFECTED) \
                     and (edge.get_right_node().get_state() == nodestate.NodeState.SUSCEPTIBLE):
-                updated_V_IS.append(edge)
-        self.potential_IS_events.event_list = updated_V_IS
+                updated_IS_events.append(edge)
+        self.potential_IS_events.event_list = updated_IS_events
 
     def add_IS_events(self, infected_node):
         for j in range(0, len(self.A[infected_node.get_label()])):
@@ -203,14 +193,9 @@ class Simulation:
                     edge)  # This happens if the new network no longer contains that node, can remove them
 
     def record_membership_states(self):
-        # TODO assign a time series vector for number of groups for membership
-        # ex. current_infected_group2.append(len(current_infected_nodes where membership==group2)
         for group in self.membership_groups:
             infected_in_group = list(node for node in self.current_infected_nodes if node.get_membership() == group)
             self.membership_time_series_infc[group].append(len(infected_in_group))
-        # maybe don't worry about recovery? need to change the list of recovered nodes to be whole Node objects,
-        # not just labels
-        # self.real_time_srs_rec.append(len(self.recovered_nodes))
 
     def init_membership_state_time_series(self):
         self.membership_time_series_infc = {}
@@ -525,8 +510,6 @@ class SimulationSEIR(Simulation):
         for group in self.membership_groups:
             infection_time_series[group] = np.zeros(len(time_partition))
             exposed_time_series[group] = np.zeros(len(time_partition))
-        # TODO tbd grouped recovery
-        # recover_time_series = np.zeros(len(time_partition))
         ts_length = len(self.time_series)
 
         try:
@@ -544,17 +527,6 @@ class SimulationSEIR(Simulation):
             print('No values for infection time series')
 
             # TODO tbd for recovery
-            # try:
-            #     for t in range(ts_length - 1):
-            #         real_time_val = self.time_series[t]
-            #         real_time_recovered = self.real_time_srs_rec[t]
-            #         # determine what index it goes in
-            #         for idx in range(time_buckets):
-            #             upper_val = time_partition[idx]
-            #             if real_time_val < upper_val:
-            #                 recover_time_series[idx] = real_time_recovered
-            # except IndexError:
-            print('No values for recovery time series')
 
         return time_partition, infection_time_series, exposed_time_series
 

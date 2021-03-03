@@ -1,12 +1,8 @@
 import numpy as np
-import sandbox
 
 
-def run():
+def run(fname):
     print('Running EpIntervene')
     print('Saving sample output')
     sample_data = [1, 2, 3]
-    np.savetxt('./../data/sample_output.txt', np.array(sample_data))
-    # sandbox.ensemble_run()
-    # sandbox.random_vaccination()
-    # sandbox.sbm_membership()
+    np.savetxt(fname, np.array(sample_data))

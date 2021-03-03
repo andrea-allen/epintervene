@@ -5,19 +5,7 @@ import matplotlib.pyplot as plt
 import networkx as nx
 from epintervene.simobjects import simulation
 from epintervene.simobjects import extended_simulation
-from epintervene.analysis import ensemble
-from epintervene.analysis import plotting
 import math
-
-def ensemble_run():
-    power_law_dd = power_law_degree_distrb()
-    mytime = time.time()
-    ensemble.simulate_intervention_effects(power_law_dd, 'random_vac_40perc_to0gen4', 2000, 10000,
-                                                               0.6, 4, 0.0, .001, prop_reduced=0.4)
-    print('Total, ', time.time()-mytime)
-    plotting.graph_infection_size_distribution_by_gen([2, 6, 10], 110, './../data/', 'random_vac_40perc_to0gen4_size_distrb_per_gen_no_interv.txt'
-                                                      ,'./../data/', 'random_vac_40perc_to0gen4_size_distrb_per_gen_with_interv.txt')
-    plt.show()
 
 def random_vaccination():
     print('Manually testing random vaccination')
@@ -73,7 +61,7 @@ def sbm_membership():
     sim.add_recover_event_rates(Gamma)
     sim.run_sim(with_memberships=True)
 
-    ts, membership_ts_infc = sim.tabulate_continuous_time_with_groups(1000)
+    ts, membership_ts_infc = sim.tabulate_continuous_time_with_groups(time_buckets=1000)
     plt.figure(0)
     for group in membership_ts_infc.keys():
         plt.plot(ts, membership_ts_infc[group], label=group)
@@ -82,7 +70,7 @@ def sbm_membership():
     plt.legend(loc='upper left')
     plt.show()
 
-    ts, infect_ts, recover_ts = sim.tabulate_continuous_time(1000)
+    ts, infect_ts, recover_ts = sim.tabulate_continuous_time(time_buckets=1000)
     plt.figure(1)
     plt.plot(ts, infect_ts, color='blue', label='Infected')
     plt.plot(ts, recover_ts, color='green', label='Recovered')
@@ -138,7 +126,7 @@ def sbm_membership():
     plt.legend(loc='upper left')
     # plt.show()
 
-    ts_by_gen = sim.tabulate_generation_results(20)
+    ts_by_gen = sim.tabulate_generation_results(max_gens=20)
     plt.figure(2)
     plt.plot(np.arange(len(ts_by_gen)), ts_by_gen)
     plt.scatter(np.arange(len(ts_by_gen)), ts_by_gen)
@@ -307,6 +295,11 @@ def power_law_degree_distrb(maxk=40, alpha=2, mu=5):
         p_k[k] = (k ** (-alpha)) * (math.e ** (-k / mu))
     p_k = p_k / np.sum(p_k)
     return p_k
+
+if __name__=='__main__':
+    sbm_membership()
+    run()
+    random_vaccination()
 
 
 
