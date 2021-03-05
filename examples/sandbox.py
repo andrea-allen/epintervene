@@ -64,7 +64,7 @@ def membership():
     sim.add_recover_event_rates(Gamma)
     sim.run_sim(with_memberships=True)
 
-    ts, membership_ts_infc = sim.tabulate_continuous_time_with_groups(time_buckets=1000)
+    ts, membership_ts_infc = sim.tabulate_continuous_time_with_groups(time_buckets=1000, custom_range=True, custom_t_lim=15)
     plt.figure(0)
     for group in membership_ts_infc.keys():
         plt.plot(ts, membership_ts_infc[group], label=group)
@@ -74,7 +74,7 @@ def membership():
     plt.title('SIR Continuous time results with group membership')
     plt.show()
 
-    ts, infect_ts, recover_ts = sim.tabulate_continuous_time(time_buckets=1000)
+    ts, infect_ts, recover_ts = sim.tabulate_continuous_time(time_buckets=1000, custom_range=True, custom_t_lim=10)
     plt.figure(1)
     plt.plot(ts, infect_ts, color='blue', label='Infected')
     plt.plot(ts, recover_ts, color='green', label='Recovered')
@@ -107,7 +107,7 @@ def membership():
 
     sim.run_sim(with_memberships=True)
 
-    ts, membership_ts_infc, membership_ts_exp = sim.tabulate_continuous_time_with_groups(1000)
+    ts, membership_ts_infc, membership_ts_exp = sim.tabulate_continuous_time_with_groups(1000, custom_range=True, custom_t_lim=10)
     plt.figure(0)
     colors = {'tiger':'blue', 'bird':'red', 'elephant':'orange'}
     for group in membership_ts_infc.keys():
@@ -121,7 +121,7 @@ def membership():
 
 
 
-    ts, infect_ts, recover_ts, exposed_ts = sim.tabulate_continuous_time(1000)
+    ts, infect_ts, recover_ts, exposed_ts = sim.tabulate_continuous_time(1000, custom_range=True, custom_t_lim=10)
 
     plt.figure(1)
     plt.plot(ts, infect_ts, color='red', label='Infected')

@@ -46,6 +46,34 @@ class Simulation:
         self.track_memberships = False
         self.node_memberships = node_memberships
 
+    def get_Beta(self):
+        return self.Beta
+
+    def get_Gamma(self):
+        return self.Gamma
+
+    def get_gen_collection(self):
+        return self.gen_collection
+
+    def get_generational_emergence(self):
+        return self.generational_emergence
+
+    def get_time_series_vals(self):
+        return self.time_series
+
+    def get_real_time_series_infected(self):
+        return self.real_time_srs_infc
+
+    def get_real_time_series_recovered(self):
+        return self.real_time_srs_rec
+
+    def get_membership_time_series_infected(self):
+        return self.membership_time_series_infc
+
+    def get_membership_time_series_recovered(self):
+        return self.membership_time_series_rec
+
+
     def initialize_patient_zero(self):
         N = len(self.A[0])
         p_zero_idx = random.randint(0, N - 1)
@@ -91,7 +119,6 @@ class Simulation:
                 node.set_event_rate(self.Gamma[node.get_label()])
 
     def run_sim(self, with_memberships=False):
-        # TODO function to clear!
         if with_memberships: self.track_memberships = True
         if self.track_memberships:
             self.init_membership_state_time_series()
@@ -224,9 +251,11 @@ class Simulation:
                 m = 0
         return infection_time_srs_by_gen
 
-    def tabulate_continuous_time(self, time_buckets=100):
+    def tabulate_continuous_time(self, time_buckets=100, custom_range=False, custom_t_lim=100):
         max_time = max(self.time_series)
         time_partition = np.linspace(0, max_time + 1, time_buckets, endpoint=False)
+        if custom_range:
+            time_partition = np.linspace(0, custom_t_lim, time_buckets, endpoint=False)
         infection_time_series = np.zeros(len(time_partition))
         recover_time_series = np.zeros(len(time_partition))
         ts_length = len(self.time_series)
@@ -256,9 +285,11 @@ class Simulation:
 
         return time_partition, infection_time_series, recover_time_series
 
-    def tabulate_continuous_time_with_groups(self, time_buckets=100):
+    def tabulate_continuous_time_with_groups(self, time_buckets=100, custom_range=False, custom_t_lim=100):
         max_time = max(self.time_series)
         time_partition = np.linspace(0, max_time + 1, time_buckets, endpoint=False)
+        if custom_range:
+            time_partition = np.linspace(0, custom_t_lim, time_buckets, endpoint=False)
         infection_time_series = {}
         for group in self.membership_groups:
             infection_time_series[group] = np.zeros(len(time_partition))
@@ -457,9 +488,11 @@ class SimulationSEIR(Simulation):
             self.membership_time_series_rec[group] = []
             self.membership_time_series_exp[group] = []
 
-    def tabulate_continuous_time(self, time_buckets=100):
+    def tabulate_continuous_time(self, time_buckets=100, custom_range=False, custom_t_lim=100):
         max_time = max(self.time_series)
         time_partition = np.linspace(0, max_time + 1, time_buckets, endpoint=False)
+        if custom_range:
+            time_partition = np.linspace(0, custom_t_lim, time_buckets, endpoint=False)
         exposed_time_series = np.zeros(len(time_partition))
         infection_time_series = np.zeros(len(time_partition))
         recover_time_series = np.zeros(len(time_partition))
@@ -502,9 +535,11 @@ class SimulationSEIR(Simulation):
 
         return time_partition, infection_time_series, recover_time_series, exposed_time_series
 
-    def tabulate_continuous_time_with_groups(self, time_buckets=100):
+    def tabulate_continuous_time_with_groups(self, time_buckets=100, custom_range=False, custom_t_lim=100):
         max_time = max(self.time_series)
         time_partition = np.linspace(0, max_time + 1, time_buckets, endpoint=False)
+        if custom_range:
+            time_partition = np.linspace(0, custom_t_lim, time_buckets, endpoint=False)
         infection_time_series = {}
         exposed_time_series = {}
         for group in self.membership_groups:

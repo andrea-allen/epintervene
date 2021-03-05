@@ -1,2 +1,1 @@
-from epintervene.simobjects.simulation import Simulation, SimulationSEIR
-from epintervene.simobjects.extended_simulation import MultiInterventionSim, RandomInterventionSim, UniversalInterventionSim, AbsoluteTimeNetworkSwitchSim
+from epintervene.simulator import run

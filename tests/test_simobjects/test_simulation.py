@@ -2,6 +2,7 @@ import unittest
 import numpy as np
 from epintervene.simobjects import simulation
 import networkx as nx
+import matplotlib.pyplot as plt
 
 
 class TestSimulation(unittest.TestCase):
@@ -73,6 +74,26 @@ class TestSimulation(unittest.TestCase):
             for edge in sim.potential_IS_events.event_list:
                 self.assertIn(edge.get_left_node().get_label(), infected_nodes)
                 self.assertNotIn(edge.get_right_node().get_label(), infected_nodes)
+
+    def test_custom_time_series_results(self):
+        N = 100
+        self.beta = 0.99
+        self.gamma = 0.0001
+        graph = nx.generators.erdos_renyi_graph(N, 0.02)
+        N = len(graph.nodes())
+        self.Beta = np.full((N, N), self.beta)
+        self.Gamma = np.full(N, self.gamma)
+        adjacency_matrix = np.array(nx.adjacency_matrix(graph).todense())
+        sim = simulation.Simulation(adjacency_matrix)
+        sim.add_infection_event_rates(self.Beta)
+        sim.add_recover_event_rates(self.Gamma)
+        sim.initialize_patient_zero()
+
+        sim.run_sim()
+
+        custom_time_results = sim.tabulate_continuous_time(time_buckets=1000, custom_range=True, custom_t_lim=15)
+        self.assertEqual(len(custom_time_results[0]), 1000)
+        self.assertEqual(max(custom_time_results[0]), 15-0.015)
 
 if __name__ == '__main__':
     unittest.main()
