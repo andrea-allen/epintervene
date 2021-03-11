@@ -37,7 +37,7 @@ class UniversalInterventionSim(simulation.Simulation):
                 break
 
     def intervene(self, reduce_current_edges=False):
-        N = len(self.Lambda[0])
+        N = len(self.Beta[0])
         new_Beta = np.full((N, N), self.beta_redux)
         self.Beta = new_Beta
         # change event rate for each existing edge pair
@@ -148,7 +148,7 @@ class MultiInterventionSim(simulation.Simulation):
         how_many = 1
         if frac_of_network > 1:
             how_many = int(np.round(frac_of_network, 0))
-        # TODO this random set needs to be nodes who are not currently vaccinated
+        # TODO this random set needs to be nodes who are not currently vaccinated, also should they be in infected and/or recovered?
         random_set = np.random.randint(0, N, how_many)
         for node in random_set:
             self.Beta[node] = np.full(N, self.beta_redux_list[intervention_entry])

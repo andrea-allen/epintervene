@@ -21,7 +21,23 @@ class EventList:
 
 
 class Simulation:
+    """
+    An SIR simulation object storing network information, rate parameters, and simulation run results.
+
+    """
     def __init__(self, adj_matrix, max_unitless_sim_time=1000000, membership_groups=None, node_memberships=None):
+        """
+        Write goal of method here tbd
+
+        :param adj_matrix : array_like
+        Input array consisting of the adjacency matrix for the underlying network.
+        :param max_unitless_sim_time : int
+        Max value the event-driven simulation will cease running at when time draw reaches this value.
+        :param membership_groups : list
+        Tags for membership groups or meta-populations in underlying network model. Cqn be any type.
+        :param node_memberships : list
+        Ordered list of membership group values where list index corresponds to node label in the adjacency matrix.
+        """
         self.total_sim_time = max_unitless_sim_time
         self.current_sim_time = 0
         self.A = adj_matrix
@@ -101,6 +117,13 @@ class Simulation:
                 self.potential_IS_events.add_to_event_list(edge_ij)
 
     def add_infection_event_rates(self, Beta):
+        """
+        Add matrix that is same dimensions of adj_matrix where each entry is transmission rate
+        between nodes
+
+        :param Beta: Matrix where each entry (i,j) contains float between 0 and 1 encoding probability of single transmission
+        event from infected node (i) to susceptible node (j)
+        """
         if len(Beta) != self.N:
             raise ValueError(Beta, 'Beta matrix must be N by N to match network size')
         else:
@@ -110,6 +133,11 @@ class Simulation:
                 edge.set_event_rate(self.Beta[edge.get_left_node().get_label(), edge.get_right_node().get_label()])
 
     def add_recover_event_rates(self, Gamma):
+        """
+        Add a vector of length the size of the adj_matrix where each entry is the recovery rate for each node
+
+        :param Gamma: Vector where each entry [i] is the recovery rate for node i
+        """
         if len(Gamma) != self.N:
             raise ValueError(Gamma, 'Gamma vector must be length N to match network size')
         else:
@@ -119,6 +147,11 @@ class Simulation:
                 node.set_event_rate(self.Gamma[node.get_label()])
 
     def run_sim(self, with_memberships=False):
+        """
+        Main method for running a single realization of the epidemic simulation.
+
+        :param with_memberships: Set to True if specified memberships in Simulation configuration
+        """
         if with_memberships: self.track_memberships = True
         if self.track_memberships:
             self.init_membership_state_time_series()
@@ -234,6 +267,14 @@ class Simulation:
         print('In progress')
 
     def tabulate_generation_results(self, max_gens):
+        """
+        Compile the results from the simulation in terms of epidemic generations.
+
+        :param max_gens: Maximum generations desired to tabulate and return information for
+        :return: Array indexed by
+        generations from 0 to max_gens of how many cumulative infected nodes there are in generations less than or
+        equal to the index
+        """
         gens = max_gens
         infection_time_srs_by_gen = np.zeros(gens)
         s = 1
@@ -252,6 +293,14 @@ class Simulation:
         return infection_time_srs_by_gen
 
     def tabulate_continuous_time(self, time_buckets=100, custom_range=False, custom_t_lim=100):
+        """
+        Compile the results from the simulation as a time series.
+
+        :param time_buckets: How many ticks to partition the total time into
+        :param custom_range: Defaults to False, set to True if desire a set maximum time value (suggested if collecting an ensemble of results)
+        :param custom_t_lim: If custom_range is True, provide max time value for the time series
+        :return: three arrays: time series values, number of infections time series, number recovered time series
+        """
         max_time = max(self.time_series)
         time_partition = np.linspace(0, max_time + 1, time_buckets, endpoint=False)
         if custom_range:
@@ -286,6 +335,15 @@ class Simulation:
         return time_partition, infection_time_series, recover_time_series
 
     def tabulate_continuous_time_with_groups(self, time_buckets=100, custom_range=False, custom_t_lim=100):
+        """
+        Compile the results of the simulation as a dictionary of time series, yielding a distinct time series for
+        each membership group.
+
+        :param time_buckets: How many ticks to partition the total time into
+        :param custom_range: Defaults to False, set to True if desire a set maximum time value (suggested if collecting an ensemble of results)
+        :param custom_t_lim: If custom_range is True, provide max time value for the time series
+        :return: two objects: the time series values, and a dict of infection time series keyed by membership group
+        """
         max_time = max(self.time_series)
         time_partition = np.linspace(0, max_time + 1, time_buckets, endpoint=False)
         if custom_range:
