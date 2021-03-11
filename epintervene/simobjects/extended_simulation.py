@@ -133,7 +133,7 @@ class MultiInterventionSim(simulation.Simulation):
                         self.intervene(self.next_up_intervention_entry)
                         self.time_of_intervention_list.append(self.current_sim_time)
                         self.intervened_status_list[self.next_up_intervention_entry] = True
-                        self.next_up_intervention_entry += 1 #TODO this isn't incrementing
+                        self.next_up_intervention_entry += 1
                 # Run one step
             self._single_step()
 
