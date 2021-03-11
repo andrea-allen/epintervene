@@ -22,7 +22,7 @@ class UniversalInterventionSim(simulation.Simulation):
         if with_memberships: self.track_memberships = True
         if self.track_memberships:
             self.init_membership_state_time_series()
-        self.initialize_patient_zero()
+        self._initialize_patient_zero()
         while self.current_sim_time < self.total_sim_time:
             if not self.intervened:
                 if self.highest_gen >= self.intervention_gen:
@@ -30,7 +30,7 @@ class UniversalInterventionSim(simulation.Simulation):
                     self.time_of_intervention = self.current_sim_time
                     self.intervened = True
             # Run one step
-            self.single_step()
+            self._single_step()
 
             self.total_num_timesteps += 1
             if len(self.potential_IS_events.event_list) == 0:
@@ -68,7 +68,7 @@ class RandomInterventionSim(simulation.Simulation):
         if with_memberships: self.track_memberships = True
         if self.track_memberships:
             self.init_membership_state_time_series()
-        self.initialize_patient_zero()
+        self._initialize_patient_zero()
         while self.current_sim_time < self.total_sim_time:
             if not self.intervened:
                 if self.highest_gen >= self.intervention_gen:
@@ -76,7 +76,7 @@ class RandomInterventionSim(simulation.Simulation):
                     self.time_of_intervention = self.current_sim_time
                     self.intervened = True
             # Run one step
-            self.single_step()
+            self._single_step()
 
             self.total_num_timesteps += 1
             if len(self.potential_IS_events.event_list) == 0:
@@ -125,7 +125,7 @@ class MultiInterventionSim(simulation.Simulation):
         if with_memberships: self.track_memberships = True
         if self.track_memberships:
             self.init_membership_state_time_series()
-        self.initialize_patient_zero()
+        self._initialize_patient_zero()
         while self.current_sim_time < self.total_sim_time:
             if self.next_up_intervention_entry < len(self.intervention_gen_list):
                 if not self.intervened_status_list[self.next_up_intervention_entry]:
@@ -135,7 +135,7 @@ class MultiInterventionSim(simulation.Simulation):
                         self.intervened_status_list[self.next_up_intervention_entry] = True
                         self.next_up_intervention_entry += 1 #TODO this isn't incrementing
                 # Run one step
-            self.single_step()
+            self._single_step()
 
             self.total_num_timesteps += 1
             if len(self.potential_IS_events.event_list) == 0:
@@ -196,7 +196,7 @@ class AbsoluteTimeNetworkSwitchSim(simulation.Simulation):
         if with_memberships: self.track_memberships = True
         if self.track_memberships:
             self.init_membership_state_time_series()
-        self.initialize_patient_zero()
+        self._initialize_patient_zero()
         while self.current_sim_time < self.total_sim_time:
             if not self.intervened:
                 if self.current_sim_time > self.intervention_time:
@@ -204,7 +204,7 @@ class AbsoluteTimeNetworkSwitchSim(simulation.Simulation):
                     self.time_of_intervention = self.current_sim_time
                     self.intervened = True
             # Run one step
-            self.single_step()
+            self._single_step()
 
             self.total_num_timesteps += 1
             if len(self.potential_IS_events.event_list) == 0:
@@ -218,5 +218,5 @@ class AbsoluteTimeNetworkSwitchSim(simulation.Simulation):
         self.prune_IS_edges()
         for node in self.potential_IS_events.event_list:
             self.add_IS_events(node)
-        self.update_IS_events()
+        self._update_IS_events()
         print('Modifying network')

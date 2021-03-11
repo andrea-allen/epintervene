@@ -27,16 +27,12 @@ class Simulation:
     """
     def __init__(self, adj_matrix, max_unitless_sim_time=1000000, membership_groups=None, node_memberships=None):
         """
-        Write goal of method here tbd
+        Create a single instance of an SIR Simulation object.
 
-        :param adj_matrix : array_like
-        Input array consisting of the adjacency matrix for the underlying network.
-        :param max_unitless_sim_time : int
-        Max value the event-driven simulation will cease running at when time draw reaches this value.
-        :param membership_groups : list
-        Tags for membership groups or meta-populations in underlying network model. Cqn be any type.
-        :param node_memberships : list
-        Ordered list of membership group values where list index corresponds to node label in the adjacency matrix.
+        :param adj_matrix: Input array consisting of the adjacency matrix for the underlying network.
+        :param max_unitless_sim_time: Max value the event-driven simulation will cease running at when time draw reaches this value.
+        :param membership_groups: Tags for membership groups or meta-populations in underlying network model. Cqn be any type.
+        :param node_memberships: Ordered list of membership group values where list index corresponds to node label in the adjacency matrix.
         """
         self.total_sim_time = max_unitless_sim_time
         self.current_sim_time = 0
@@ -89,8 +85,7 @@ class Simulation:
     def get_membership_time_series_recovered(self):
         return self.membership_time_series_rec
 
-
-    def initialize_patient_zero(self):
+    def _initialize_patient_zero(self):
         N = len(self.A[0])
         p_zero_idx = random.randint(0, N - 1)
         if self.Gamma is None:
@@ -121,8 +116,7 @@ class Simulation:
         Add matrix that is same dimensions of adj_matrix where each entry is transmission rate
         between nodes
 
-        :param Beta: Matrix where each entry (i,j) contains float between 0 and 1 encoding probability of single transmission
-        event from infected node (i) to susceptible node (j)
+        :param Beta: Matrix where each entry (i,j) contains float between 0 and 1 encoding probability of single transmission event from infected node (i) to susceptible node (j)
         """
         if len(Beta) != self.N:
             raise ValueError(Beta, 'Beta matrix must be N by N to match network size')
@@ -152,19 +146,20 @@ class Simulation:
 
         :param with_memberships: Set to True if specified memberships in Simulation configuration
         """
-        if with_memberships: self.track_memberships = True
+        if with_memberships:
+            self.track_memberships = True
         if self.track_memberships:
             self.init_membership_state_time_series()
-        self.initialize_patient_zero()
+        self._initialize_patient_zero()
         while self.current_sim_time < self.total_sim_time:
             # Run one step
-            self.single_step()
+            self._single_step()
 
             self.total_num_timesteps += 1
             if len(self.potential_IS_events.event_list) == 0:
                 break
 
-    def single_step(self, visualize=False):
+    def _single_step(self, visualize=False):
         if visualize:
             self.visualize_network()
         event_catolog = [self.potential_IS_events, self.potential_recovery_events]
@@ -194,7 +189,7 @@ class Simulation:
                         infection_event.get_right_node().get_label()]
                     self.highest_gen += 1
                     self.generational_emergence[self.highest_gen] = self.current_sim_time
-                self.update_IS_events()
+                self._update_IS_events()
                 self.add_IS_events(infection_event.get_right_node())
             if event_class.event_type == eventtype.EventType.RECOVER:
                 recovery_event = next_event
@@ -204,11 +199,11 @@ class Simulation:
                 except:
                     print(recovery_event.get_label())
                 recovery_event.recover()
-                self.update_IS_events()
+                self._update_IS_events()
                 self.recovered_nodes.append(recovery_event)
         self.current_sim_time += tau
 
-    def update_IS_events(self):
+    def _update_IS_events(self):
         updated_IS_events = []
         for edge in self.potential_IS_events.event_list:
             if (edge.get_left_node().get_state() == nodestate.NodeState.INFECTED) \
@@ -271,9 +266,7 @@ class Simulation:
         Compile the results from the simulation in terms of epidemic generations.
 
         :param max_gens: Maximum generations desired to tabulate and return information for
-        :return: Array indexed by
-        generations from 0 to max_gens of how many cumulative infected nodes there are in generations less than or
-        equal to the index
+        :return: Array indexed by generations from 0 to max_gens of how many cumulative infected nodes there are in generations less than or equal to the index
         """
         gens = max_gens
         infection_time_srs_by_gen = np.zeros(gens)
@@ -419,10 +412,10 @@ class SimulationSEIR(Simulation):
         if with_memberships: self.track_memberships = True
         if self.track_memberships:
             self.init_membership_state_time_series()
-        self.initialize_patient_zero()
+        self._initialize_patient_zero()
         while self.current_sim_time < self.total_sim_time:
             # Run one step
-            self.single_step()
+            self._single_step()
 
             self.total_num_timesteps += 1
             if (len(self.potential_IS_events.event_list) == 0) \
@@ -430,7 +423,7 @@ class SimulationSEIR(Simulation):
                     and (len(self.potential_EI_events.event_list) == 0):
                 break
 
-    def single_step(self, visualize=False):
+    def _single_step(self, visualize=False):
         if visualize:
             self.visualize_network()
         event_catolog = [self.potential_IS_events, self.potential_recovery_events, self.potential_ES_events,
@@ -463,7 +456,7 @@ class SimulationSEIR(Simulation):
                         infection_event.get_right_node().get_label()]
                     self.highest_gen += 1
                     self.generational_emergence[self.highest_gen] = self.current_sim_time
-                self.update_IS_events()
+                self._update_IS_events()
                 self.update_ES_events()
                 self.add_ES_events(infection_event.get_right_node())  # todo this should be add ES edges actually
             elif event_class.event_type == eventtype.EventType.EXPOSEDSUSCEPTIBLE:
@@ -483,7 +476,7 @@ class SimulationSEIR(Simulation):
                         exposure_event.get_right_node().get_label()]
                     self.highest_gen += 1
                     self.generational_emergence[self.highest_gen] = self.current_sim_time
-                self.update_IS_events()
+                self._update_IS_events()
                 self.update_ES_events()
                 self.add_ES_events(exposure_event.get_right_node())
 
@@ -491,7 +484,7 @@ class SimulationSEIR(Simulation):
                 exposed_infected_event = next_event
                 self.potential_EI_events.remove_from_event_list(exposed_infected_event)
                 exposed_infected_event.infect()
-                self.update_IS_events()
+                self._update_IS_events()
                 self.update_ES_events()
                 self.current_infected_nodes.append(exposed_infected_event)
                 self.current_exposed.remove(exposed_infected_event)
@@ -501,7 +494,7 @@ class SimulationSEIR(Simulation):
                 recovery_event = next_event
                 self.potential_recovery_events.remove_from_event_list(recovery_event)
                 recovery_event.recover()
-                self.update_IS_events()
+                self._update_IS_events()
                 self.recovered_nodes.append(recovery_event)
                 self.current_infected_nodes.remove(recovery_event)
 

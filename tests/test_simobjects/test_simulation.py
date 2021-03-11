@@ -10,14 +10,14 @@ class TestSimulation(unittest.TestCase):
         A = np.random.random_integers(0, 1, (10, 10))
         A = (A + A.T)/2
         sim = simulation.Simulation(A)
-        self.assertRaises(AttributeError, sim.initialize_patient_zero)
+        self.assertRaises(AttributeError, sim._initialize_patient_zero)
 
         good_Beta = np.full((10,10), 0.2)
         good_Gamma = np.full(10, 0.5)
         sim.add_recover_event_rates(good_Gamma)
         sim.add_infection_event_rates(good_Beta)
 
-        sim.initialize_patient_zero()
+        sim._initialize_patient_zero()
         self.assertEqual(len(sim.potential_recovery_events.event_list), 1)
 
     def test_beta_rate_matrix_throws_exception(self):
@@ -53,12 +53,12 @@ class TestSimulation(unittest.TestCase):
         sim = simulation.Simulation(adjacency_matrix)
         sim.add_infection_event_rates(self.Beta)
         sim.add_recover_event_rates(self.Gamma)
-        sim.initialize_patient_zero()
+        sim._initialize_patient_zero()
         print('before single step')
 
         self.assertGreaterEqual(len(sim.potential_IS_events.event_list), 1)
         self.assertEqual(len(sim.potential_recovery_events.event_list), 1)
-        sim.single_step()
+        sim._single_step()
 
         print('after single step')
         self.assertEqual(len(sim.potential_recovery_events.event_list), 2)
@@ -67,7 +67,7 @@ class TestSimulation(unittest.TestCase):
             self.assertIn(edge.get_left_node().get_label(), infected_nodes)
             self.assertNotIn(edge.get_right_node().get_label(), infected_nodes)
         if len(sim.potential_IS_events.event_list) > 0:
-            sim.single_step()
+            sim._single_step()
             print('after second single step')
             self.assertEqual(len(sim.potential_recovery_events.event_list), 3)
             infected_nodes = list(map(lambda node: node.get_label(), sim.potential_recovery_events.event_list))
@@ -87,7 +87,7 @@ class TestSimulation(unittest.TestCase):
         sim = simulation.Simulation(adjacency_matrix)
         sim.add_infection_event_rates(self.Beta)
         sim.add_recover_event_rates(self.Gamma)
-        sim.initialize_patient_zero()
+        sim._initialize_patient_zero()
 
         sim.run_sim()
 
