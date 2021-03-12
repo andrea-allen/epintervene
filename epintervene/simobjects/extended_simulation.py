@@ -1,5 +1,7 @@
 from epintervene.simobjects import simulation
 import numpy as np
+from epintervene.simobjects import network
+from epintervene.simobjects import nodestate
 
 
 class UniversalInterventionSim(simulation.Simulation):
@@ -89,7 +91,7 @@ class RandomInterventionSim(simulation.Simulation):
         how_many = 1
         if frac_of_network > 1:
             how_many = int(np.round(frac_of_network, 0))
-        random_set = np.random.randint(0, N, how_many)
+        random_set = np.random.randint(0, N, how_many) #TODO pick unique ones, this picks with replacement
         for node in random_set:
             self._Beta[node] = np.full(N, self.beta_redux)
             # TODO column as well?
@@ -100,7 +102,8 @@ class RandomInterventionSim(simulation.Simulation):
                 edge.set_event_rate(self._Beta[edge.get_left_node().get_label()][edge.get_right_node().get_label()])
 
 
-class MultiInterventionSim(simulation.Simulation):
+#TODO possibly rename this as Rollout, which would be backwards incompatible
+class RandomRolloutSimulation(simulation.Simulation):
     def __init__(self, A, max_unitless_sim_time=1000000, membership_groups=None, node_memberships=None):
         super().__init__(adj_matrix=A, max_unitless_sim_time=max_unitless_sim_time, membership_groups=membership_groups,
                          node_memberships=node_memberships)
@@ -148,16 +151,27 @@ class MultiInterventionSim(simulation.Simulation):
         how_many = 1
         if frac_of_network > 1:
             how_many = int(np.round(frac_of_network, 0))
-        # TODO this random set needs to be nodes who are not currently vaccinated, also should they be in infected and/or recovered?
-        random_set = np.random.randint(0, N, how_many)
-        for node in random_set:
-            self._Beta[node] = np.full(N, self.beta_redux_list[intervention_entry])
-            # TODO column as well?
-            self._Beta[:, node] = np.full(N, self.beta_redux_list[intervention_entry]).T
-        # change event rate for each existing edge pair
-        if reduce_current_edges:
-            for edge in self._potential_IS_events._event_list:
-                edge.set_event_rate(self._Beta[edge.get_left_node().get_label()][edge.get_right_node().get_label()])
+        vaccinated_nodes = []
+        vax_labels = []
+        while len(vaccinated_nodes) < how_many:
+            random_set = np.unique(np.random.randint(0, N, how_many))
+            for node_label in random_set:
+                if len(vax_labels) < how_many:
+                    if node_label not in vax_labels:
+                        candidate_node = network.Node(node_label, -1, None, self._Gamma[node_label])
+                        if self.track_memberships:
+                            candidate_node.set_membership(self._node_memberships[candidate_node.get_label()])
+                        existing_node = self._existing_node(candidate_node)
+                        if existing_node.get_state() != nodestate.NodeState.VACCINATED:
+                            existing_node.vaccinate()
+                            vaccinated_nodes.append(existing_node)
+                            vax_labels.append(node_label)
+                            self._Beta[node_label] = np.full(N, self.beta_redux_list[intervention_entry])
+                            self._Beta[:, node_label] = np.full(N, self.beta_redux_list[intervention_entry]).T
+                            if reduce_current_edges:
+                                for edge in self._potential_IS_events._event_list:
+                                    edge.set_event_rate(self._Beta[edge.get_left_node().get_label()][edge.get_right_node().get_label()])
+        return vaccinated_nodes
 
 
 class TargetedInterventionSim(simulation.Simulation):

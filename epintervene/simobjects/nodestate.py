@@ -6,3 +6,4 @@ class NodeState(Enum):
     EXPOSED = auto()
     INFECTED = auto()
     RECOVERED = auto()
+    VACCINATED = auto()

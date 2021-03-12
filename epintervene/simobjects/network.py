@@ -21,6 +21,9 @@ class Node:
     def expose(self):
         self._state = nodestate.NodeState.EXPOSED
 
+    def vaccinate(self):
+        self._state = nodestate.NodeState.VACCINATED
+
     def get_label(self):
         return self._label
 
