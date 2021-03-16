@@ -143,7 +143,7 @@ class Simulation:
             for node in self._potential_recovery_events._event_list:
                 node.set_event_rate(self._Gamma[node.get_label()])
 
-    def run_sim(self, with_memberships=False):
+    def run_sim(self, with_memberships=False, wait_for_recovery=False):
         """
         Main method for running a single realization of the epidemic simulation.
 
@@ -160,7 +160,10 @@ class Simulation:
 
             self._total_num_timesteps += 1
             if len(self._potential_IS_events._event_list) == 0:
-                break
+                if not wait_for_recovery:
+                    break
+                elif len(self._current_infected_nodes) == 0:
+                    break
 
     def _single_step(self, visualize=False):
         if visualize:
@@ -207,6 +210,8 @@ class Simulation:
         self._current_sim_time += tau
 
     def _update_IS_events(self):
+        #TODO optimize, what is most efficient way to remove newly infected nodes from the _right_node position of potential events? (i.e. race condition)
+        # Could instead have a algorithm where before infecting, check if that node isn't infected yet. If it IS, remove it. Call it passive cleanup instead of active cleanup.
         updated_IS_events = []
         for edge in self._potential_IS_events._event_list:
             if (edge.get_left_node().get_state() == nodestate.NodeState.INFECTED) \
@@ -215,6 +220,7 @@ class Simulation:
         self._potential_IS_events._event_list = updated_IS_events
 
     def _add_IS_events(self, infected_node):
+        #TODO optimize
         for j in range(0, len(self._A[infected_node.get_label()])):
             if self._A[infected_node.get_label()][j] == 1:
                 candidate_node = network.Node(j, -1, nodestate.NodeState.SUSCEPTIBLE, self._Gamma[j])
@@ -411,7 +417,7 @@ class SimulationSEIR(Simulation):
             for node in self._potential_ES_events._event_list:
                 node.set_event_rate(self._Beta_ExposedSusceptible[node.get_label()])
 
-    def run_sim(self, with_memberships=False):
+    def run_sim(self, with_memberships=False, wait_for_recovery = False):
         if with_memberships: self.track_memberships = True
         if self.track_memberships:
             self._init_membership_state_time_series()
@@ -424,7 +430,10 @@ class SimulationSEIR(Simulation):
             if (len(self._potential_IS_events._event_list) == 0) \
                     and (len(self._potential_ES_events._event_list) == 0) \
                     and (len(self._potential_EI_events._event_list) == 0):
-                break
+                if not wait_for_recovery:
+                    break
+                elif len(self._current_infected_nodes) == 0:
+                    break
 
     def _single_step(self, visualize=False):
         if visualize:
@@ -544,6 +553,7 @@ class SimulationSEIR(Simulation):
             self._membership_time_series_exp[group] = []
 
     def tabulate_continuous_time(self, time_buckets=100, custom_range=False, custom_t_lim=100):
+        # TODO add doc strings since return type differs
         max_time = max(self._time_series)
         time_partition = np.linspace(0, max_time + 1, time_buckets, endpoint=False)
         if custom_range:

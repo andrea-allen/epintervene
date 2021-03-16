@@ -62,7 +62,7 @@ def membership():
     Gamma = np.full(len(A), 0.9)
     sim.add_infection_event_rates(Beta)
     sim.add_recover_event_rates(Gamma)
-    sim.run_sim(with_memberships=True)
+    sim.run_sim(with_memberships=True, wait_for_recovery=True)
 
     ts, membership_ts_infc = sim.tabulate_continuous_time_with_groups(time_buckets=1000, custom_range=True, custom_t_lim=15)
     plt.figure(0)
@@ -105,7 +105,7 @@ def membership():
     sim.add_recover_event_rates(Gamma)
     sim.add_exposed_infected_event_rates(Theta_EI)
 
-    sim.run_sim(with_memberships=True)
+    sim.run_sim(with_memberships=True, wait_for_recovery=True)
 
     ts, membership_ts_infc, membership_ts_exp = sim.tabulate_continuous_time_with_groups(1000, custom_range=True, custom_t_lim=10)
     plt.figure(0)
