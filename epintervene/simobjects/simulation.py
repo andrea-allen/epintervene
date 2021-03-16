@@ -496,6 +496,9 @@ class SimulationSEIR(Simulation):
                 exposed_infected_event = next_event
                 self._potential_EI_events.remove_from_event_list(exposed_infected_event)
                 exposed_infected_event.infect()
+                exposed_infected_event.set_event_rate(
+                    self._Gamma[exposed_infected_event.get_label()])
+                self._potential_recovery_events.add_to_event_list(exposed_infected_event)
                 self._update_IS_events()
                 self._update_ES_events()
                 self._current_infected_nodes.append(exposed_infected_event)
