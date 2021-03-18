@@ -133,3 +133,29 @@ class NetworkBuilder:
             return G, pos
         return G, None
 
+    @staticmethod
+    def erdos_renyi(N, p):
+        return nx.erdos_renyi_graph(N, p)
+
+    @staticmethod
+    def create_adjacency_list(G):
+        adjlist = list(list(map(int, minilist)) for minilist in list(map(str.split, nx.generate_adjlist(G))))
+
+        # make adjlist symmetric:
+        len_adj = len(adjlist)
+        for row in adjlist:
+            source = row[0]
+            if len(row) > 1:
+                for target in row[1:]:
+                    try:
+                        if source not in adjlist[target]:
+                            adjlist[target].append(source)
+                    except IndexError:
+                        print(source, target)
+                        adjlist.append([source])
+        total_entry_count = 0
+        for i in range(len_adj):
+            if len(adjlist[i]) > 1:
+                total_entry_count += len(adjlist[i][1:])
+        return adjlist
+
