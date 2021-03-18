@@ -166,6 +166,7 @@ class RandomRolloutSimulation(simulation.Simulation):
                     break
 
     def intervene(self, intervention_entry, reduce_current_edges=False):
+        #TODO the bad news is that not all entries are being removed from the potential IS lists so spread isn't happening?
         print('intervening')
         if self._N == 0:
             self._N = len(self._A[0])

@@ -70,7 +70,7 @@ def random_vaccination():
     Gamma = np.full(len(A), 0.001)
     sim.add_infection_event_rates(Beta)
     sim.add_recover_event_rates(Gamma)
-    sim.configure_intervention(intervention_gen_list=[3,4], beta_redux_list=[0,0], proportion_reduced_list=[0.3, 0.3])
+    sim.configure_intervention(intervention_gen_list=[3,4], beta_redux_list=[0,0], proportion_reduced_list=[0.01, 0.03])
     # sim.configure_intervention(3, 0, .9) #TODO ready to commit, experiment w intervention rollouts
     start = time.time()
     sim.run_sim(wait_for_recovery=False, uniform_rate=True)

@@ -730,9 +730,14 @@ def draw_event_class(event_catalog, uniform_rate=False):
         events = event_catalog[event_class]._event_list
         if uniform_rate:
             if len(events) > 0:
-                first_event_rate = events[0].get_event_rate()
+                idx = 0
+                first_event_rate = events[idx].get_event_rate()
                 if first_event_rate==0.0:
                     print(first_event_rate)
+                    while first_event_rate==0:
+                        idx += 1
+                        first_event_rate = events[idx].get_event_rate()
+                        print(first_event_rate)
                 total_combined_rate += events[0].get_event_rate() * len(events)
             partition_end_markers[event_class] = total_combined_rate
         else:
