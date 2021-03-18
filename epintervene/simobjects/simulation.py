@@ -738,7 +738,7 @@ def draw_event_class(event_catalog, uniform_rate=False):
                         idx += 1
                         first_event_rate = events[idx].get_event_rate()
                         print(first_event_rate)
-                total_combined_rate += events[0].get_event_rate() * len(events)
+                total_combined_rate += events[idx].get_event_rate() * len(events)
             partition_end_markers[event_class] = total_combined_rate
         else:
             total_combined_rate += np.sum(event.get_event_rate() for event in events)
