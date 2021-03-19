@@ -193,16 +193,16 @@ class Simulation:
             self._visualize_network()
         event_catolog = [self._potential_IS_events, self._potential_recovery_events]
         # note: to optimize, going to stop updating IS edges before this step. it will throw off tau by a tiny bit, but usually only by 1 or 2 events and shouldn't affect the whole distribution
-        tau = draw_tau(event_catolog, uniform_rate=uniform_rate)
+        tau = draw_tau(event_catolog, uniform_rate=self.use_uniform_rate)
 
         self._time_series.append(self._time_series[-1] + tau)
         self._real_time_srs_infc.append(len(self._current_infected_nodes))
         self._real_time_srs_rec.append(len(self._recovered_nodes))
         if self.track_memberships:
             self._record_membership_states()
-        event_class = draw_event_class(event_catolog, uniform_rate=uniform_rate)
+        event_class = draw_event_class(event_catolog, uniform_rate=self.use_uniform_rate)
         if event_class is not None:
-            next_event = draw_event(event_class)
+            next_event = draw_event(event_class, self.use_uniform_rate)
             if event_class._event_type == eventtype.EventType.INFECTEDSUSCEPTIBLE:
                 infection_event = next_event
                 infection_event.infect()
@@ -779,9 +779,12 @@ def draw_event_class(event_catalog, uniform_rate=False):
             return event_catalog[i]  # Document: return the whole list of events in that class
 
 
-def draw_event(event_list):
+def draw_event(event_list, use_uniform_rate=False):
     possible_events = event_list._event_list
-    max_rate = max(event.get_event_rate() for event in possible_events)
+    if use_uniform_rate:
+        max_rate = possible_events[0].get_event_rate()
+    else:
+        max_rate = max(event.get_event_rate() for event in possible_events)
     accepted = False
     random_event = None
     L = len(event_list._event_list)  # Document: drawing weighted with re-sampling (with replacement)

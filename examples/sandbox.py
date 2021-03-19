@@ -22,9 +22,10 @@ def optimizing():
     adjlist = nb.create_adjacency_list(G)
 
     A = np.array(nx.adjacency_matrix(G).todense())
-    for i in range(2):
-        # sim = simulation.Simulation(adj_matrix=A, adj_list=adjlist, N=len(A))
-        sim = extended_simulation.RandomRolloutSimulation(adjmatrix=A, adjlist=adjlist, N=len(A))
+    start_time = time.time()
+    for i in range(100):
+        sim = simulation.Simulation(adj_matrix=A, adj_list=adjlist, N=len(A))
+        # sim = extended_simulation.RandomRolloutSimulation(adjmatrix=A, adjlist=adjlist, N=len(A))
         # sim.set_adjlist(adjlist)
         # Beta = np.full((len(A), len(A)), 0.0015)
         # Gamma = np.full(len(A), 0.001)
@@ -32,13 +33,12 @@ def optimizing():
         # sim.add_recover_event_rates(Gamma)
         sim.set_uniform_beta(0.0015)
         sim.set_uniform_gamma(0.001)
-        sim.configure_intervention(intervention_gen_list=[5,6,7], beta_redux_list=[0, 0, 0], proportion_reduced_list=[0.01,0.05,0.10])
+        # sim.configure_intervention(intervention_gen_list=[5,6,7], beta_redux_list=[0, 0, 0], proportion_reduced_list=[0.01,0.05,0.10])
         # 46 seconds for a major sim with 10000 nodes, 1.5 mean degree, and beta of 0.9
         # commenting out the update_IS_events method, sim takes same time, seemed to have no effect
-        start_time = time.time()
         # sim.run_sim(wait_for_recovery=True)
         sim.run_sim(wait_for_recovery=False, uniform_rate=True)
-        print(f'Total time for a single sim took {time.time()-start_time}')
+    print(f'Total time for all sim took {time.time()-start_time}')
 
 
     ts, infect_ts, recover_ts = sim.tabulate_continuous_time(1000)
@@ -282,8 +282,8 @@ def binomial_degree_distb(N, lam=6):
 
 if __name__=='__main__':
     optimizing()
-    membership()
-    random_vaccination()
+    # membership()
+    # random_vaccination()
 
 
 
