@@ -68,6 +68,7 @@ class RandomInterventionSim(simulation.Simulation):
         self.proportion_reduced = proportion_reduced
 
     def run_sim(self, with_memberships=False, uniform_rate=True, wait_for_recovery=False):
+        self.use_uniform_rate = uniform_rate
         if with_memberships: self.track_memberships = True
         self.use_uniform_rate = uniform_rate
         if self.track_memberships:
@@ -142,6 +143,7 @@ class RandomRolloutSimulation(simulation.Simulation):
             self.intervened_status_list.append(False)
 
     def run_sim(self, with_memberships=False, uniform_rate=True, wait_for_recovery=False):
+        self.use_uniform_rate = uniform_rate
         if with_memberships: self.track_memberships = True
         self.use_uniform_rate = uniform_rate
         if self.track_memberships:
@@ -171,7 +173,7 @@ class RandomRolloutSimulation(simulation.Simulation):
         if self._N == 0:
             self._N = len(self._A[0])
         frac_of_network = self.proportion_reduced_list[intervention_entry] * self._N
-        how_many = 1
+        how_many = 0
         if frac_of_network > 1:
             how_many = int(np.round(frac_of_network, 0))
         vaccinated_nodes = []
@@ -181,7 +183,10 @@ class RandomRolloutSimulation(simulation.Simulation):
             for node_label in random_set:
                 if len(vax_labels) < how_many:
                     if node_label not in vax_labels:
-                        candidate_node = network.Node(node_label, -1, None, self._Gamma[node_label])
+                        if self.use_uniform_rate:
+                            candidate_node = network.Node(node_label, -1, None, self._uniform_gamma)
+                        else:
+                            candidate_node = network.Node(node_label, -1, None, self._Gamma[node_label])
                         if self.track_memberships:
                             candidate_node.set_membership(self._node_memberships[candidate_node.get_label()])
                         existing_node = self._existing_node(candidate_node)
@@ -191,8 +196,8 @@ class RandomRolloutSimulation(simulation.Simulation):
                             existing_node.vaccinate()
                             vaccinated_nodes.append(existing_node)
                             vax_labels.append(node_label)
-                            self._Beta[node_label] = np.full(self._N, self.beta_redux_list[intervention_entry])
-                            self._Beta[:, node_label] = np.full(self._N, self.beta_redux_list[intervention_entry]).T
+                            # self._Beta[node_label] = np.full(self._N, self.beta_redux_list[intervention_entry])
+                            # self._Beta[:, node_label] = np.full(self._N, self.beta_redux_list[intervention_entry]).T
                             self._update_IS_events(recovery_event=existing_node)
                             if reduce_current_edges:
                                 for edge in self._potential_IS_events._event_list:
@@ -232,7 +237,8 @@ class AbsoluteTimeNetworkSwitchSim(simulation.Simulation):
     def simtype(self):
         print('I am a simulation class of type Absolute Time Network Intervention')
 
-    def run_sim(self, with_memberships=False):
+    def run_sim(self, with_memberships=False, use_uniform_rate=True):
+        self.use_uniform_rate = use_uniform_rate
         if with_memberships: self.track_memberships = True
         if self.track_memberships:
             self._init_membership_state_time_series()

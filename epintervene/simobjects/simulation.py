@@ -45,6 +45,8 @@ class Simulation:
         self._A = adj_matrix
         self._adjlist = adj_list
         self._N = N
+        self._uniform_beta = None
+        self._uniform_gamma = None
         self._Beta = None
         self._Gamma = None
         self._potential_IS_events = EventList(eventtype.EventType.INFECTEDSUSCEPTIBLE, [])
@@ -66,7 +68,9 @@ class Simulation:
         self._membership_time_series_infc = {0: []}
         self._membership_time_series_rec = {0: []}
         self.track_memberships = False
+        self.use_uniform_rate = True
         self._node_memberships = node_memberships
+
 
     def get_Beta(self):
         return self._Beta
@@ -98,19 +102,28 @@ class Simulation:
     def set_adjlist(self, adjlist):
         self._adjlist = adjlist
 
+    def set_uniform_beta(self, beta):
+        self._uniform_beta = beta
+
+    def set_uniform_gamma(self, gamma):
+        self._uniform_gamma = gamma
+
     def _initialize_patient_zero(self):
         if self._N==0:
             self._N = len(self._A[0])
         p_zero_idx = random.randint(0, self._N - 1)
-        if self._Gamma is None:
+        if self._Gamma is None and self._uniform_gamma is None:
             raise AttributeError(self._Gamma,
                                  'Please provide a recovery vector Gamma to the simulation via the '
-                                 'add_recover_event_rates method')
-        if self._Beta is None:
+                                 'add_recover_event_rates method, or a uniform gamma with the set_uniform_gamma method')
+        if self._Beta is None and self._uniform_beta is None:
             raise AttributeError(self._Beta,
                                  'Please provide an infection rate matrix Beta to the simulation via the '
-                                 'add_infection_event_rates method')
-        patient_zero = network.Node(p_zero_idx, 0, nodestate.NodeState.INFECTED, event_rate=self._Gamma[p_zero_idx])
+                                 'add_infection_event_rates method, or set a uniform beta with the set_uniform_beta method')
+        if self.use_uniform_rate:
+            patient_zero = network.Node(p_zero_idx, 0, nodestate.NodeState.INFECTED, event_rate=self._uniform_gamma)
+        else:
+            patient_zero = network.Node(p_zero_idx, 0, nodestate.NodeState.INFECTED, event_rate=self._Gamma[p_zero_idx])
         if self.track_memberships:
             patient_zero.set_membership(self._node_memberships[p_zero_idx])
         self._active_nodes.append(patient_zero)
@@ -156,6 +169,7 @@ class Simulation:
 
         :param with_memberships: Set to True if specified memberships in Simulation configuration
         """
+        self.use_uniform_rate = uniform_rate
         if with_memberships:
             self.track_memberships = True
         if self.track_memberships:
@@ -173,6 +187,8 @@ class Simulation:
                     break
 
     def _single_step(self, visualize=False, uniform_rate=True):
+        if uniform_rate:
+            self.use_uniform_rate = True
         if visualize:
             self._visualize_network()
         event_catolog = [self._potential_IS_events, self._potential_recovery_events]
@@ -255,13 +271,18 @@ class Simulation:
             length = len(infection_adjlist)
             for n in range(1, length):
                 j = infection_adjlist[n]
-
-                candidate_node = network.Node(j, -1, nodestate.NodeState.SUSCEPTIBLE, self._Gamma[j])
+                if self.use_uniform_rate:
+                    candidate_node = network.Node(j, -1, nodestate.NodeState.SUSCEPTIBLE, self._uniform_gamma)
+                else:
+                    candidate_node = network.Node(j, -1, nodestate.NodeState.SUSCEPTIBLE, self._Gamma[j])
                 if self.track_memberships:
                     candidate_node.set_membership(self._node_memberships[candidate_node.get_label()])
                 neighbor_node = self._existing_node(candidate_node)
                 if neighbor_node.get_state() == nodestate.NodeState.SUSCEPTIBLE:
-                    edge_ij = network.Edge(infected_node, neighbor_node, self._Beta[infected_label][j])
+                    if self.use_uniform_rate:
+                        edge_ij = network.Edge(infected_node, neighbor_node, self._uniform_beta)
+                    else:
+                        edge_ij = network.Edge(infected_node, neighbor_node, self._Beta[infected_label][j])
                     self._potential_IS_events.add_to_event_list(edge_ij)
                     try:
                         self._out_degree_IS_events[infected_node.get_label()].append(edge_ij)
@@ -460,7 +481,9 @@ class SimulationSEIR(Simulation):
             for node in self._potential_ES_events._event_list:
                 node.set_event_rate(self._Beta_ExposedSusceptible[node.get_label()])
 
+    # TODO number recovered is going over 100%, ugh.
     def run_sim(self, with_memberships=False, uniform_rate=True, wait_for_recovery=False):
+        self.use_uniform_rate = uniform_rate
         if with_memberships: self.track_memberships = True
         if self.track_memberships:
             self._init_membership_state_time_series()

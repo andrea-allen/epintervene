@@ -22,15 +22,17 @@ def optimizing():
     adjlist = nb.create_adjacency_list(G)
 
     A = np.array(nx.adjacency_matrix(G).todense())
-    for i in range(100):
+    for i in range(2):
         # sim = simulation.Simulation(adj_matrix=A, adj_list=adjlist, N=len(A))
         sim = extended_simulation.RandomRolloutSimulation(adjmatrix=A, adjlist=adjlist, N=len(A))
         # sim.set_adjlist(adjlist)
-        Beta = np.full((len(A), len(A)), 0.0015)
-        Gamma = np.full(len(A), 0.001)
-        sim.add_infection_event_rates(Beta)
-        sim.add_recover_event_rates(Gamma)
-        sim.configure_intervention(intervention_gen_list=[5,6,7], beta_redux_list=[0, 0, 0], proportion_reduced_list=[0,0,0])
+        # Beta = np.full((len(A), len(A)), 0.0015)
+        # Gamma = np.full(len(A), 0.001)
+        # sim.add_infection_event_rates(Beta)
+        # sim.add_recover_event_rates(Gamma)
+        sim.set_uniform_beta(0.0015)
+        sim.set_uniform_gamma(0.001)
+        sim.configure_intervention(intervention_gen_list=[5,6,7], beta_redux_list=[0, 0, 0], proportion_reduced_list=[0.01,0.05,0.10])
         # 46 seconds for a major sim with 10000 nodes, 1.5 mean degree, and beta of 0.9
         # commenting out the update_IS_events method, sim takes same time, seemed to have no effect
         start_time = time.time()
@@ -69,10 +71,12 @@ def random_vaccination():
     A = np.array(nx.adjacency_matrix(G).todense())
     sim = extended_simulation.RandomRolloutSimulation(N=len(A), adjmatrix=A, adjlist=adjlist)
     # sim = extended_simulation.RandomInterventionSim(N=len(A), adjmatrix=A, adjlist=adjlist)
-    Beta = np.full((len(A), len(A)), 0.9)
-    Gamma = np.full(len(A), 0.001)
-    sim.add_infection_event_rates(Beta)
-    sim.add_recover_event_rates(Gamma)
+    # Beta = np.full((len(A), len(A)), 0.9)
+    # Gamma = np.full(len(A), 0.001)
+    # sim.add_infection_event_rates(Beta)
+    # sim.add_recover_event_rates(Gamma)
+    sim.set_uniform_beta(0.9)
+    sim.set_uniform_gamma(0.001)
     sim.configure_intervention(intervention_gen_list=[3,4], beta_redux_list=[0,0], proportion_reduced_list=[0.01, 0.03])
     # sim.configure_intervention(3, 0, .9) #TODO ready to commit, experiment w intervention rollouts
     start = time.time()
@@ -121,7 +125,7 @@ def membership():
     Gamma = np.full(len(A), 0.9)
     sim.add_infection_event_rates(Beta)
     sim.add_recover_event_rates(Gamma)
-    sim.run_sim(with_memberships=True, wait_for_recovery=True)
+    sim.run_sim(with_memberships=True, wait_for_recovery=True, uniform_rate=False)
 
     ts, membership_ts_infc = sim.tabulate_continuous_time_with_groups(time_buckets=1000, custom_range=True, custom_t_lim=15)
     plt.figure(0)
@@ -167,7 +171,7 @@ def membership():
     adjlist = nb.create_adjacency_list(G)
     sim.set_adjlist(adjlist)
 
-    sim.run_sim(with_memberships=True, wait_for_recovery=True)
+    sim.run_sim(with_memberships=True, wait_for_recovery=True, uniform_rate=False)
 
     ts, membership_ts_infc, membership_ts_exp = sim.tabulate_continuous_time_with_groups(1000, custom_range=True, custom_t_lim=10)
     plt.figure(0)
@@ -277,9 +281,9 @@ def binomial_degree_distb(N, lam=6):
     return p_k
 
 if __name__=='__main__':
-    # optimizing()
+    optimizing()
     membership()
-    # random_vaccination()
+    random_vaccination()
 
 
 
