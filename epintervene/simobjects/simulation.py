@@ -531,7 +531,7 @@ class SimulationSEIR(Simulation):
                         exposure_event.get_right_node().get_label()]
                     self._highest_gen += 1
                     self._generational_emergence[self._highest_gen] = self._current_sim_time
-                # self._update_IS_events()
+                self._update_IS_events(infection_IS_event=exposure_event)
                 self._update_ES_events(infection_ES_event=exposure_event)
                 self._add_ES_events(exposure_event.get_right_node())
 
@@ -551,7 +551,7 @@ class SimulationSEIR(Simulation):
                 recovery_event = next_event
                 self._potential_recovery_events.remove_from_event_list(recovery_event)
                 recovery_event.recover()
-                self._update_IS_events()
+                self._update_IS_events(recovery_event=recovery_event)
                 self._recovered_nodes.append(recovery_event)
                 self._current_infected_nodes.remove(recovery_event)
 
@@ -577,6 +577,13 @@ class SimulationSEIR(Simulation):
                 for event in out_degree_events:
                     self._potential_ES_events.remove_from_event_list(event)
                 self._out_degree_ES_events[exposed_infected_event.get_label()] = []
+            except KeyError:
+                pass
+            try:
+                in_degree_events = self._in_degree_ES_events[exposed_infected_event.get_label()]
+                for event in in_degree_events:
+                    self._potential_ES_events.remove_from_event_list(event)
+                self._in_degree_ES_events[exposed_infected_event.get_label()] = []
             except KeyError:
                 pass
 

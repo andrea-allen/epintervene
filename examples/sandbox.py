@@ -13,7 +13,7 @@ def optimizing():
     powerlaw = power_law_degree_distrb(mu=100)
     start_time=time.time()
     degree_distrb = binomial_degree_distb(400, 2.5)
-    degree_distrb = powerlaw
+    # degree_distrb = powerlaw
     print(f'net work time {time.time()-start_time}')
 
 
@@ -22,18 +22,21 @@ def optimizing():
     adjlist = nb.create_adjacency_list(G)
 
     A = np.array(nx.adjacency_matrix(G).todense())
-    sim = simulation.Simulation(adj_matrix=A, adj_list=adjlist, N=len(A))
-    # sim.set_adjlist(adjlist)
-    Beta = np.full((len(A), len(A)), 0.1)
-    Gamma = np.full(len(A), 0.001)
-    sim.add_infection_event_rates(Beta)
-    sim.add_recover_event_rates(Gamma)
-    # 46 seconds for a major sim with 10000 nodes, 1.5 mean degree, and beta of 0.9
-    # commenting out the update_IS_events method, sim takes same time, seemed to have no effect
-    start_time = time.time()
-    # sim.run_sim(wait_for_recovery=True)
-    sim.run_sim(wait_for_recovery=False, uniform_rate=True)
-    print(f'Total time for a single sim took {time.time()-start_time}')
+    for i in range(100):
+        # sim = simulation.Simulation(adj_matrix=A, adj_list=adjlist, N=len(A))
+        sim = extended_simulation.RandomRolloutSimulation(adjmatrix=A, adjlist=adjlist, N=len(A))
+        # sim.set_adjlist(adjlist)
+        Beta = np.full((len(A), len(A)), 0.0015)
+        Gamma = np.full(len(A), 0.001)
+        sim.add_infection_event_rates(Beta)
+        sim.add_recover_event_rates(Gamma)
+        sim.configure_intervention(intervention_gen_list=[5,6,7], beta_redux_list=[0, 0, 0], proportion_reduced_list=[0,0,0])
+        # 46 seconds for a major sim with 10000 nodes, 1.5 mean degree, and beta of 0.9
+        # commenting out the update_IS_events method, sim takes same time, seemed to have no effect
+        start_time = time.time()
+        # sim.run_sim(wait_for_recovery=True)
+        sim.run_sim(wait_for_recovery=False, uniform_rate=True)
+        print(f'Total time for a single sim took {time.time()-start_time}')
 
 
     ts, infect_ts, recover_ts = sim.tabulate_continuous_time(1000)
@@ -274,9 +277,9 @@ def binomial_degree_distb(N, lam=6):
     return p_k
 
 if __name__=='__main__':
-    optimizing()
+    # optimizing()
     membership()
-    random_vaccination()
+    # random_vaccination()
 
 
 
