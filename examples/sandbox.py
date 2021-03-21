@@ -125,7 +125,9 @@ def membership():
     Gamma = np.full(len(A), 0.9)
     sim.add_infection_event_rates(Beta)
     sim.add_recover_event_rates(Gamma)
-    sim.run_sim(with_memberships=True, wait_for_recovery=True, uniform_rate=False)
+    sim.set_uniform_beta(0.5)
+    sim.set_uniform_gamma(0.9)
+    sim.run_sim(with_memberships=True, wait_for_recovery=True, uniform_rate=True)
 
     ts, membership_ts_infc = sim.tabulate_continuous_time_with_groups(time_buckets=1000, custom_range=True, custom_t_lim=15)
     plt.figure(0)
@@ -170,6 +172,10 @@ def membership():
 
     adjlist = nb.create_adjacency_list(G)
     sim.set_adjlist(adjlist)
+    # sim.set_uniform_gamma(1.0)
+    # sim.set_uniform_beta(0.25)
+    # sim.set_uniform_beta_es(0.25)
+    # sim.set_uniform_gamma_ei(1.0)
 
     sim.run_sim(with_memberships=True, wait_for_recovery=True, uniform_rate=False)
 
@@ -281,9 +287,9 @@ def binomial_degree_distb(N, lam=6):
     return p_k
 
 if __name__=='__main__':
-    optimizing()
-    # membership()
-    # random_vaccination()
+    # optimizing()
+    membership()
+    random_vaccination()
 
 
 

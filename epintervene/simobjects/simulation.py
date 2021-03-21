@@ -38,7 +38,7 @@ class Simulation:
         :param adj_matrix: Input array consisting of the adjacency matrix for the underlying network.
         :param max_unitless_sim_time: Max value the event-driven simulation will cease running at when time draw reaches this value.
         :param membership_groups: Tags for membership groups or meta-populations in underlying network model. Cqn be any type.
-        :param node_memberships: Ordered list of membership group values where list index corresponds to node label in the adjacency matrix.
+        :param node_memberships: Ordered list of membership group values where list index corresponds to node label in the adjacency matrix/list.
         """
         self.total_sim_time = max_unitless_sim_time
         self._current_sim_time = 0
@@ -168,8 +168,14 @@ class Simulation:
         Main method for running a single realization of the epidemic simulation.
 
         :param with_memberships: Set to True if specified memberships in Simulation configuration
+        :param uniform_rate: Will use a uniform transmission and recovery event probabilites instead of a customized matrix. Increases simulation speed, use if possible.
+        :param wait_for_recovery: Will run simulation until all possible nodes have recovered.
         """
         self.use_uniform_rate = uniform_rate
+        if self.use_uniform_rate and (
+                self._uniform_beta is None or self._uniform_gamma is None):
+            raise Exception(
+                'Since uniform_rate=True, must set all transmission and recovery parameter values via set_uniform_{param} method}')
         if with_memberships:
             self.track_memberships = True
         if self.track_memberships:
@@ -187,8 +193,7 @@ class Simulation:
                     break
 
     def _single_step(self, visualize=False, uniform_rate=True):
-        if uniform_rate:
-            self.use_uniform_rate = True
+        self.use_uniform_rate = uniform_rate
         if visualize:
             self._visualize_network()
         event_catolog = [self._potential_IS_events, self._potential_recovery_events]
@@ -448,7 +453,21 @@ class Simulation:
 
 
 class SimulationSEIR(Simulation):
+    """
+    An SEIR simulation object storing network information, rate parameters, and simulation run results.
+
+    """
     def __init__(self, N, adjmatrix=None, adjlist=None, max_unitless_sim_time=1000000, membership_groups=None, node_memberships=None):
+        """
+        Create a single instance of an SEIR Simulation object.
+
+        :param N: Number of nodes in the network
+        :param adjmatrix: Adjacency matrix, numpy array, can be None
+        :param adjlist: Adjacency list, must be symmetric. Nested list should have entries of form e.g. [i j k] where node i has neighbors j and k. New source node is always the left-most node of a new line.
+        :param max_unitless_sim_time: Max value the event-driven simulation will cease running at when time draw reaches this value.
+        :param membership_groups:  Tags for membership groups or meta-populations in underlying network model. Cqn be any type.
+        :param node_memberships: Ordered list of membership group values where list index corresponds to node label in the adjacency matrix/list.
+        """
         super().__init__(adj_matrix=adjmatrix, adj_list=adjlist, N=N, max_unitless_sim_time=max_unitless_sim_time, membership_groups=membership_groups, node_memberships=node_memberships)
         self._potential_ES_events = EventList(eventtype.EventType.EXPOSEDSUSCEPTIBLE, [])
         self._potential_EI_events = EventList(eventtype.EventType.EXPOSEDINFECTED, [])
@@ -460,8 +479,16 @@ class SimulationSEIR(Simulation):
         self._membership_time_series_exp = {0: []}
         self._in_degree_ES_events = {}
         self._out_degree_ES_events = {}
+        self._uniform_gamma_ei = None
+        self._uniform_beta_es = None
         # TODO deal with generations of exposed emergence as well
         # should probably also determine in the model if there's completely asymptomatic cases as well (E->R events)
+
+    def set_uniform_beta_es(self, beta):
+        self._uniform_beta_es = beta
+
+    def set_uniform_gamma_ei(self, gamma):
+        self._uniform_gamma_ei = gamma
 
     def add_exposed_event_rates(self, Beta_Exp):
         if len(Beta_Exp) != self._N:
@@ -483,7 +510,16 @@ class SimulationSEIR(Simulation):
 
     # TODO number recovered is going over 100%, ugh.
     def run_sim(self, with_memberships=False, uniform_rate=True, wait_for_recovery=False):
+        """
+        Main method for running a single realization of the epidemic simulation.
+
+        :param with_memberships: Set to True if specified memberships in Simulation configuration.
+        :param uniform_rate: Will use a uniform transmission and recovery event probabilites instead of a customized matrix. Increases simulation speed, use if possible.
+        :param wait_for_recovery: Will run simulation until all possible nodes have recovered.
+        """
         self.use_uniform_rate = uniform_rate
+        if self.use_uniform_rate and (self._uniform_beta_es is None or self._uniform_gamma_ei is None or self._uniform_gamma is None or self._uniform_beta is None):
+            raise Exception('Since uniform_rate=True, must set all transmission and recovery parameter values via set_uniform_{param} method}')
         if with_memberships: self.track_memberships = True
         if self.track_memberships:
             self._init_membership_state_time_series()
@@ -502,11 +538,12 @@ class SimulationSEIR(Simulation):
                     break
 
     def _single_step(self, visualize=False, uniform_rate=True):
+        self.use_uniform_rate = uniform_rate
         if visualize:
             self._visualize_network()
         event_catolog = [self._potential_IS_events, self._potential_recovery_events, self._potential_ES_events,
                          self._potential_EI_events]
-        tau = draw_tau(event_catolog, uniform_rate=uniform_rate)
+        tau = draw_tau(event_catolog, uniform_rate=self.use_uniform_rate)
 
         self._time_series.append(self._time_series[-1] + tau)
         self._real_time_srs_infc.append(len(self._current_infected_nodes))
@@ -515,16 +552,20 @@ class SimulationSEIR(Simulation):
         if self.track_memberships:
             self._record_membership_states()
 
-        event_class = draw_event_class(event_catolog, uniform_rate=uniform_rate)  # This is returning a whole list of events
+        event_class = draw_event_class(event_catolog, uniform_rate=self.use_uniform_rate)  # This is returning a whole list of events
         if event_class is not None:
-            next_event = draw_event(event_class)
+            next_event = draw_event(event_class, self.use_uniform_rate)
             if event_class._event_type == eventtype.EventType.INFECTEDSUSCEPTIBLE:
                 infection_event = next_event
                 infection_event.expose()
                 self._potential_IS_events.remove_from_event_list(infection_event)
                 self._current_exposed.append(infection_event.get_right_node())
-                infection_event.get_right_node().set_event_rate(
-                    self._Theta_ExposedInfected[infection_event.get_right_node().get_label()])
+                if self.use_uniform_rate:
+                    infection_event.get_right_node().set_event_rate(
+                        self._uniform_gamma_ei)
+                else:
+                    infection_event.get_right_node().set_event_rate(
+                        self._Theta_ExposedInfected[infection_event.get_right_node().get_label()])
                 self._potential_EI_events.add_to_event_list(infection_event.get_right_node())
                 try:
                     self._gen_collection[infection_event.get_right_node().get_generation()].append(
@@ -542,8 +583,12 @@ class SimulationSEIR(Simulation):
                 exposure_event.expose()
                 self._potential_ES_events.remove_from_event_list(exposure_event)
                 self._current_exposed.append(exposure_event.get_right_node())
-                exposure_event.get_right_node().set_event_rate(
-                    self._Theta_ExposedInfected[exposure_event.get_right_node().get_label()])
+                if self.use_uniform_rate:
+                    exposure_event.get_right_node().set_event_rate(
+                        self._uniform_gamma_ei)
+                else:
+                    exposure_event.get_right_node().set_event_rate(
+                        self._Theta_ExposedInfected[exposure_event.get_right_node().get_label()])
                 self._potential_EI_events.add_to_event_list(
                     exposure_event.get_right_node())
                 try:
@@ -562,8 +607,12 @@ class SimulationSEIR(Simulation):
                 exposed_infected_event = next_event
                 self._potential_EI_events.remove_from_event_list(exposed_infected_event)
                 exposed_infected_event.infect()
-                exposed_infected_event.set_event_rate(
-                    self._Gamma[exposed_infected_event.get_label()])
+                if self.use_uniform_rate:
+                    exposed_infected_event.set_event_rate(
+                        self._uniform_gamma)
+                else:
+                    exposed_infected_event.set_event_rate(
+                        self._Gamma[exposed_infected_event.get_label()])
                 self._potential_recovery_events.add_to_event_list(exposed_infected_event)
                 self._update_ES_events(exposed_infected_event=exposed_infected_event)
                 self._current_infected_nodes.append(exposed_infected_event)
@@ -617,13 +666,18 @@ class SimulationSEIR(Simulation):
             length = len(infection_adjlist)
             for n in range(1, length):
                 j = infection_adjlist[n]
-
-                candidate_node = network.Node(j, -1, nodestate.NodeState.SUSCEPTIBLE, self._Theta_ExposedInfected[j])
+                if self.use_uniform_rate:
+                    candidate_node = network.Node(j, -1, nodestate.NodeState.SUSCEPTIBLE, self._uniform_gamma_ei)
+                else:
+                    candidate_node = network.Node(j, -1, nodestate.NodeState.SUSCEPTIBLE, self._Theta_ExposedInfected[j])
                 if self.track_memberships:
                     candidate_node.set_membership(self._node_memberships[candidate_node.get_label()])
                 neighbor_node = self._existing_node(candidate_node) # 18 seconds
                 if neighbor_node.get_state() == nodestate.NodeState.SUSCEPTIBLE:
-                    edge_ij = network.Edge(infected_node, neighbor_node, self._Beta_ExposedSusceptible[infected_node.get_label()][j])
+                    if self.use_uniform_rate:
+                        edge_ij = network.Edge(infected_node, neighbor_node, self._uniform_beta)
+                    else:
+                        edge_ij = network.Edge(infected_node, neighbor_node, self._Beta_ExposedSusceptible[infected_node.get_label()][j])
                     self._potential_ES_events.add_to_event_list(edge_ij)
                     try:
                         self._out_degree_ES_events[infected_node.get_label()].append(edge_ij)
@@ -788,11 +842,6 @@ def draw_event(event_list, use_uniform_rate=False):
     accepted = False
     random_event = None
     L = len(event_list._event_list)  # Document: drawing weighted with re-sampling (with replacement)
-    # if L>10000:
-    #     # TODO need to fix this, breaks down for seir sim
-    #     print('non unique elements, length greater than network size of: ')
-    #     print(len(np.array(list(event.get_label() for event in event_list._event_list))))
-    #     print(f'unique length of: {len(np.unique(np.array(list(event.get_label() for event in event_list._event_list))))}')
     while not accepted:
         random_idx = np.random.randint(0, L)
         random_event = event_list._event_list[random_idx]
