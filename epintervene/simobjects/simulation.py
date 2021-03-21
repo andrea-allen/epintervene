@@ -788,10 +788,11 @@ def draw_event(event_list, use_uniform_rate=False):
     accepted = False
     random_event = None
     L = len(event_list._event_list)  # Document: drawing weighted with re-sampling (with replacement)
-    if L>10000:
-        print('non unique elements, length greater than network size of: ')
-        print(len(np.array(list(event.get_label() for event in event_list._event_list))))
-        print(f'unique length of: {len(np.unique(np.array(list(event.get_label() for event in event_list._event_list))))}')
+    # if L>10000:
+    #     # TODO need to fix this, breaks down for seir sim
+    #     print('non unique elements, length greater than network size of: ')
+    #     print(len(np.array(list(event.get_label() for event in event_list._event_list))))
+    #     print(f'unique length of: {len(np.unique(np.array(list(event.get_label() for event in event_list._event_list))))}')
     while not accepted:
         random_idx = np.random.randint(0, L)
         random_event = event_list._event_list[random_idx]
