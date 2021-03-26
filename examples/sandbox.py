@@ -60,6 +60,57 @@ def optimizing():
     plt.title('SIR Generational Cumulative Results for Random Intervention Simulation')
     plt.show()
 
+def uniform_reduction():
+    nb = network.NetworkBuilder
+    powerlaw = power_law_degree_distrb(mu=100)
+
+    # Creating a network from a power law degree distribution
+    G, pos = nb.from_degree_distribution(10000, powerlaw)
+    adjlist = nb.create_adjacency_list(G)
+    A = np.array(nx.adjacency_matrix(G).todense())
+    sim = extended_simulation.UniversalInterventionSim(N=len(A), A=A, adjlist=adjlist)
+    sim.configure_intervention(4, 0.6)
+    sim.set_uniform_beta(0.9)
+    sim.set_uniform_gamma(0.1)
+
+    start = time.time()
+    sim.run_sim(wait_for_recovery=False, uniform_rate=True)
+    print(f'total sim time {time.time()-start}')
+
+    reg_sim = simulation.Simulation(N=len(A), adj_list=adjlist)
+    reg_sim.set_uniform_beta(0.9)
+    reg_sim.set_uniform_gamma(0.1)
+
+    start = time.time()
+    reg_sim.run_sim(wait_for_recovery=False, uniform_rate=True)
+    print(f'total sim time {time.time()-start}')
+
+
+    ts, infect_ts, recover_ts = sim.tabulate_continuous_time(1000)
+    reg_ts, reg_infect_ts, reg_recover_ts = reg_sim.tabulate_continuous_time(1000)
+    plt.figure(1)
+    plt.plot(ts, infect_ts, color='blue', label='Intv. Infected', ls='--')
+    plt.plot(ts, reg_infect_ts, color='blue', label='Infected')
+    plt.plot(ts, recover_ts, color='green', label='Intv. Recovered', ls='--')
+    plt.plot(ts, reg_recover_ts, color='green', label='Recovered')
+    plt.xlabel('Time t')
+    plt.ylabel('Number of nodes in class')
+    plt.legend(loc='upper left')
+    plt.title('SIR Continuous Time Results for Universal Intervention Simulation')
+    # plt.show()
+
+    ts_by_gen = sim.tabulate_generation_results(20)
+    ts_by_gen_reg = reg_sim.tabulate_generation_results(20)
+    plt.figure(2)
+    plt.plot(np.arange(len(ts_by_gen)), ts_by_gen)
+    plt.plot(np.arange(len(ts_by_gen_reg)), ts_by_gen_reg)
+    plt.scatter(np.arange(len(ts_by_gen)), ts_by_gen)
+    plt.scatter(np.arange(len(ts_by_gen_reg)), ts_by_gen_reg)
+    plt.xlabel('Generation number')
+    plt.ylabel('Cumulative infections by generation')
+    plt.title('SIR Generational Cumulative Results for Universal Intervention Simulation')
+    plt.show()
+
 
 def random_vaccination():
     nb = network.NetworkBuilder
@@ -287,9 +338,10 @@ def binomial_degree_distb(N, lam=6):
     return p_k
 
 if __name__=='__main__':
+    uniform_reduction()
     # optimizing()
-    membership()
-    random_vaccination()
+    # membership()
+    # random_vaccination()
 
 
 

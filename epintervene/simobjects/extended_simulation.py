@@ -5,13 +5,14 @@ from epintervene.simobjects import nodestate
 
 
 class UniversalInterventionSim(simulation.Simulation):
-    def __init__(self, A, max_unitless_sim_time=1000000, membership_groups=None, node_memberships=None):
-        super().__init__(adj_matrix=A, max_unitless_sim_time=max_unitless_sim_time, membership_groups=membership_groups,
+    def __init__(self, N, A=None, adjlist=None, max_unitless_sim_time=1000000, membership_groups=None, node_memberships=None):
+        super().__init__(N=N, adj_matrix=A, adj_list=adjlist, max_unitless_sim_time=max_unitless_sim_time, membership_groups=membership_groups,
                          node_memberships=node_memberships)
         self.intervention_gen = None
         self.beta_redux = None
         self.intervened = False
         self.time_of_intervention = max_unitless_sim_time
+        self.use_uniform_rate = True
 
     def simtype(self):
         print('I am a simulation class of type universal intervention')
@@ -20,7 +21,8 @@ class UniversalInterventionSim(simulation.Simulation):
         self.intervention_gen = intervention_gen
         self.beta_redux = beta_redux
 
-    def run_sim(self, with_memberships=False):
+    def run_sim(self, with_memberships=False, uniform_rate=True, wait_for_recovery=False):
+        self.use_uniform_rate = uniform_rate
         if with_memberships: self.track_memberships = True
         if self.track_memberships:
             self._init_membership_state_time_series()
@@ -32,20 +34,30 @@ class UniversalInterventionSim(simulation.Simulation):
                     self.time_of_intervention = self._current_sim_time
                     self.intervened = True
             # Run one step
-            self._single_step()
+            self._single_step(uniform_rate=self.use_uniform_rate)
 
             self._total_num_timesteps += 1
             if len(self._potential_IS_events._event_list) == 0:
-                break
+                if not wait_for_recovery:
+                    break
+                elif len(self._current_infected_nodes) == 0:
+                    break
 
     def intervene(self, reduce_current_edges=False):
-        N = len(self.Beta[0])
-        new_Beta = np.full((N, N), self.beta_redux)
-        self.Beta = new_Beta
+        print('intervening')
+        N = self._N
+        if self.use_uniform_rate:
+            self._uniform_beta = self.beta_redux
+        else:
+            new_Beta = np.full((N, N), self.beta_redux)
+            self.Beta = new_Beta
         # change event rate for each existing edge pair
         if reduce_current_edges:
             for edge in self._potential_IS_events._event_list:
-                edge.set_event_rate(self.Beta[edge.i.label][edge.j.label])
+                if self.use_uniform_rate:
+                    edge.set_event_rate(self.beta_redux)
+                else:
+                    edge.set_event_rate(self.Beta[edge.i.label][edge.j.label])
 
 
 class RandomInterventionSim(simulation.Simulation):
@@ -168,7 +180,6 @@ class RandomRolloutSimulation(simulation.Simulation):
                     break
 
     def intervene(self, intervention_entry, reduce_current_edges=False):
-        #TODO the bad news is that not all entries are being removed from the potential IS lists so spread isn't happening?
         print('intervening')
         if self._N == 0:
             self._N = len(self._A[0])
