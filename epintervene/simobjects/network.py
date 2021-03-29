@@ -2,6 +2,7 @@ import numpy as np
 import networkx as nx
 import math
 from epintervene.simobjects import nodestate
+import matplotlib.pyplot as plt
 
 
 class Node:
@@ -158,4 +159,38 @@ class NetworkBuilder:
             if len(adjlist[i]) > 1:
                 total_entry_count += len(adjlist[i][1:])
         return adjlist
+
+def visualize(N, graph, pos, gen_collection):
+    G = graph
+    val_map = {}
+    gen_labels_map = {}
+    vmax=10
+    max_gen = max(gen_collection.keys()) + 1
+    for gen in gen_collection.keys():
+        nodes = gen_collection[gen]
+        for node in nodes:
+            val_map[node] = vmax - (gen)
+            gen_labels_map.update({node: gen})
+
+    values = [val_map.get(node, 0) for node in G.nodes()]
+
+    nx.draw_networkx_nodes(G, pos=pos, cmap=plt.get_cmap('YlGnBu'), node_color=values, vmin=0, vmax=vmax)
+    # nx.draw_networkx_nodes(G, pos=pos, node_color=)
+    # gen_labels_map[1]=''
+    # gen_labels_map[10]=''
+    # gen_labels_map[20]=''
+    # gen_labels_map[30]=''
+    nx.draw_networkx_labels(G, pos=pos, with_labels=True, labels=gen_labels_map)
+    nx.draw_networkx_edges(G, pos=pos, edge_color='grey', lw=2)
+
+    # V = nx.Graph()
+    # V.add_nodes_from([1, 10])
+    # V2 = nx.Graph()
+    # V2.add_nodes_from([20,30])
+    # nx.draw_networkx_nodes(V, pos=pos, node_color='red')
+    # nx.draw_networkx_nodes(V2, pos=pos, node_color='orange')
+    # nx.draw_networkx_labels(V, pos=pos, with_labels=False, labels={1:'V', 10:'V', 20:'V', 30:'V'})
+    plt.axis(False)
+    plt.tight_layout()
+    plt.show()
 

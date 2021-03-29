@@ -61,8 +61,8 @@ class UniversalInterventionSim(simulation.Simulation):
 
 
 class RandomInterventionSim(simulation.Simulation):
-    def __init__(self, A, max_unitless_sim_time=1000000, membership_groups=None, node_memberships=None):
-        super().__init__(adj_matrix=A, max_unitless_sim_time=max_unitless_sim_time, membership_groups=membership_groups,
+    def __init__(self, N, adjmatrix=None, adjlist=None, max_unitless_sim_time=1000000, membership_groups=None, node_memberships=None):
+        super().__init__(N=N, adj_matrix=adjmatrix, adj_list=adjlist, max_unitless_sim_time=max_unitless_sim_time, membership_groups=membership_groups,
                          node_memberships=node_memberships)
         self.intervention_gen = None
         self.beta_redux = None
@@ -104,18 +104,22 @@ class RandomInterventionSim(simulation.Simulation):
 
     def intervene(self, reduce_current_edges=False):
         print('intervening')
-        N = len(self._A[0])
-        frac_of_network = self.proportion_reduced * N
-        how_many = 1
+        if self._N == 0:
+            self._N = len(self._A[0])
+        frac_of_network = self.proportion_reduced * self._N
+        how_many = 0
         if frac_of_network > 1:
             how_many = int(np.round(frac_of_network, 0))
         vaccinated_nodes = []
         vax_labels = []
-        random_set = np.unique(np.random.randint(0, N, how_many))
+        random_set = np.unique(np.random.randint(0, self._N, how_many))
         for node_label in random_set:
             if len(vax_labels) < how_many:
                 if node_label not in vax_labels:
-                    candidate_node = network.Node(node_label, -1, None, self._Gamma[node_label])
+                    if self.use_uniform_rate:
+                        candidate_node = network.Node(node_label, -1, None, self._uniform_gamma)
+                    else:
+                        candidate_node = network.Node(node_label, -1, None, self._Gamma[node_label])
                     if self.track_memberships:
                         candidate_node.set_membership(self._node_memberships[candidate_node.get_label()])
                     existing_node = self._existing_node(candidate_node)
@@ -123,8 +127,8 @@ class RandomInterventionSim(simulation.Simulation):
                         existing_node.vaccinate()
                         vaccinated_nodes.append(existing_node)
                         vax_labels.append(node_label)
-                        self._Beta[node_label] = np.full(N, self.beta_redux)
-                        self._Beta[:, node_label] = np.full(N, self.beta_redux).T
+                        # self._Beta[node_label] = np.full(N, self.beta_redux)
+                        # self._Beta[:, node_label] = np.full(N, self.beta_redux).T
                     self._update_IS_events(recovery_event=existing_node)
         # change event rate for each existing edge pair
         if reduce_current_edges:

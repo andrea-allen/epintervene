@@ -163,7 +163,7 @@ class Simulation:
             for node in self._potential_recovery_events._event_list:
                 node.set_event_rate(self._Gamma[node.get_label()])
 
-    def run_sim(self, with_memberships=False, uniform_rate=True, wait_for_recovery=False):
+    def run_sim(self, with_memberships=False, uniform_rate=True, wait_for_recovery=False, visualize=False, viz_graph=None, viz_pos=None):
         """
         Main method for running a single realization of the epidemic simulation.
 
@@ -183,7 +183,7 @@ class Simulation:
         self._initialize_patient_zero()
         while self._current_sim_time < self.total_sim_time:
             # Run one step
-            self._single_step(uniform_rate=uniform_rate)
+            self._single_step(uniform_rate=uniform_rate, visualize=visualize, viz_graph=viz_graph, viz_pos=viz_pos)
 
             self._total_num_timesteps += 1
             if len(self._potential_IS_events._event_list) == 0:
@@ -192,10 +192,10 @@ class Simulation:
                 elif len(self._current_infected_nodes) == 0:
                     break
 
-    def _single_step(self, visualize=False, uniform_rate=True):
+    def _single_step(self, visualize=False, uniform_rate=True, viz_graph=None, viz_pos=None):
         self.use_uniform_rate = uniform_rate
         if visualize:
-            self._visualize_network()
+            self._visualize_network(viz_graph, viz_pos)
         event_catolog = [self._potential_IS_events, self._potential_recovery_events]
         # note: to optimize, going to stop updating IS edges before this step. it will throw off tau by a tiny bit, but usually only by 1 or 2 events and shouldn't affect the whole distribution
         tau = draw_tau(event_catolog, uniform_rate=self.use_uniform_rate)
@@ -334,7 +334,8 @@ class Simulation:
             self._membership_time_series_infc[group] = []
             self._membership_time_series_rec[group] = []
 
-    def _visualize_network(self):
+    def _visualize_network(self, viz_graph, viz_pos):
+        network.visualize(self._N, viz_graph, viz_pos, self._gen_collection)
         print('In progress')
 
     def tabulate_generation_results(self, max_gens):

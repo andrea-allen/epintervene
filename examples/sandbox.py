@@ -8,6 +8,20 @@ from epintervene.simobjects import extended_simulation
 import math
 import time
 
+def visualize_network():
+    nb = network.NetworkBuilder
+    # powerlaw = power_law_degree_distrb(mu=100)
+    degree_distrb = binomial_degree_distb(400, 6)
+
+    # Creating a network from a power law degree distribution
+    G, pos = nb.from_degree_distribution(45, degree_distrb, True)
+    adjlist = nb.create_adjacency_list(G)
+    N = len(G.nodes())
+    sim = simulation.Simulation(adj_list=adjlist, N=N)
+    sim.set_uniform_beta(0.9)
+    sim.set_uniform_gamma(0.001)
+    sim.run_sim(wait_for_recovery=False, uniform_rate=True, visualize=True, viz_graph=G, viz_pos=pos)
+
 def optimizing():
     nb = network.NetworkBuilder
     powerlaw = power_law_degree_distrb(mu=100)
@@ -112,7 +126,7 @@ def uniform_reduction():
     plt.show()
 
 
-def random_vaccination():
+def random_rollout_vaccination():
     nb = network.NetworkBuilder
     powerlaw = power_law_degree_distrb(mu=100)
 
@@ -129,6 +143,47 @@ def random_vaccination():
     sim.set_uniform_beta(0.9)
     sim.set_uniform_gamma(0.001)
     sim.configure_intervention(intervention_gen_list=[3,4], beta_redux_list=[0,0], proportion_reduced_list=[0.01, 0.03])
+    # sim.configure_intervention(3, 0, .9) #TODO ready to commit, experiment w intervention rollouts
+    start = time.time()
+    sim.run_sim(wait_for_recovery=False, uniform_rate=True)
+    print(f'total sim time {time.time()-start}')
+
+    ts, infect_ts, recover_ts = sim.tabulate_continuous_time(1000)
+    plt.figure(1)
+    plt.plot(ts, infect_ts, color='blue', label='Infected')
+    plt.plot(ts, recover_ts, color='green', label='Recovered')
+    plt.xlabel('Time t')
+    plt.ylabel('Number of nodes in class')
+    plt.legend(loc='upper left')
+    plt.title('SIR Continuous Time Results for Random Rollout Intervention Simulation')
+    # plt.show()
+
+    ts_by_gen = sim.tabulate_generation_results(20)
+    plt.figure(2)
+    plt.plot(np.arange(len(ts_by_gen)), ts_by_gen)
+    plt.scatter(np.arange(len(ts_by_gen)), ts_by_gen)
+    plt.xlabel('Generation number')
+    plt.ylabel('Cumulative infections by generation')
+    plt.title('SIR Generational Cumulative Results for Random Rollout Intervention Simulation')
+    plt.show()
+
+def random_vaccination():
+    nb = network.NetworkBuilder
+    powerlaw = power_law_degree_distrb(mu=100)
+
+    # Creating a network from a power law degree distribution
+    G, pos = nb.from_degree_distribution(10000, powerlaw)
+    adjlist = nb.create_adjacency_list(G)
+    A = np.array(nx.adjacency_matrix(G).todense())
+    sim = extended_simulation.RandomInterventionSim(N=len(A), adjmatrix=A, adjlist=adjlist)
+    # sim = extended_simulation.RandomInterventionSim(N=len(A), adjmatrix=A, adjlist=adjlist)
+    # Beta = np.full((len(A), len(A)), 0.9)
+    # Gamma = np.full(len(A), 0.001)
+    # sim.add_infection_event_rates(Beta)
+    # sim.add_recover_event_rates(Gamma)
+    sim.set_uniform_beta(0.9)
+    sim.set_uniform_gamma(0.001)
+    sim.configure_intervention(intervention_gen=4, beta_redux=0.0, proportion_reduced=0.10)
     # sim.configure_intervention(3, 0, .9) #TODO ready to commit, experiment w intervention rollouts
     start = time.time()
     sim.run_sim(wait_for_recovery=False, uniform_rate=True)
@@ -338,10 +393,12 @@ def binomial_degree_distb(N, lam=6):
     return p_k
 
 if __name__=='__main__':
+    # visualize_network()
     uniform_reduction()
     # optimizing()
     # membership()
-    # random_vaccination()
+    random_vaccination()
+    random_rollout_vaccination()
 
 
 
