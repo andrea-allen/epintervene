@@ -233,17 +233,20 @@ class RingInterventionSim(simulation.Simulation):
 
 
 class AbsoluteTimeNetworkSwitchSim(simulation.Simulation):
-    def __init__(self, A, max_unitless_sim_time=1000000, membership_groups=None, node_memberships=None):
-        super().__init__(adj_matrix=A, max_unitless_sim_time=max_unitless_sim_time, membership_groups=membership_groups,
+    def __init__(self, N, A=None, adjlist=None, max_unitless_sim_time=1000000, membership_groups=None, node_memberships=None):
+        super().__init__(N=N, adj_matrix=A, adj_list=adjlist, max_unitless_sim_time=max_unitless_sim_time, membership_groups=membership_groups,
                          node_memberships=node_memberships)
         self.A_modified = None
+        self.adjlist_modified = None
         self.intervention_time = None
         self.intervened = False
         self.time_of_intervention = max_unitless_sim_time
         self.new_Beta = None
         self.new_Gamma = None
+        self.use_uniform_rate = True
 
-    def configure_intervention(self, new_adjacency_matrix, intervention_time, Beta, Gamma):
+    def configure_intervention(self,  intervention_time, new_adjacency_matrix=None, new_adjlist=None,Beta=None, Gamma=None):
+        self.adjlist_modified = new_adjlist
         self.A_modified = new_adjacency_matrix
         self.intervention_time = intervention_time
         self.new_Beta = Beta
@@ -252,7 +255,7 @@ class AbsoluteTimeNetworkSwitchSim(simulation.Simulation):
     def simtype(self):
         print('I am a simulation class of type Absolute Time Network Intervention')
 
-    def run_sim(self, with_memberships=False, use_uniform_rate=True):
+    def run_sim(self, with_memberships=False, use_uniform_rate=True, wait_for_recovery=False):
         self.use_uniform_rate = use_uniform_rate
         if with_memberships: self.track_memberships = True
         if self.track_memberships:
@@ -265,19 +268,31 @@ class AbsoluteTimeNetworkSwitchSim(simulation.Simulation):
                     self.time_of_intervention = self._current_sim_time
                     self.intervened = True
             # Run one step
-            self._single_step()
+            self._single_step(uniform_rate=self.use_uniform_rate)
 
             self._total_num_timesteps += 1
             if len(self._potential_IS_events._event_list) == 0:
-                break
+                if not wait_for_recovery:
+                    break
+                elif len(self._current_infected_nodes) == 0:
+                    break
 
     def intervene(self):
         # need to re-size Beta and Gamma in case the network size has changed
-        self.A = self.A_modified
-        super().add_infection_event_rates(self.new_Beta)
-        super().add_recover_event_rates(self.new_Gamma)
-        self._prune_IS_edges()
-        for node in self._potential_IS_events._event_list:
-            self._add_IS_events(node)
-        self._update_IS_events()
         print('Modifying network')
+        self._A = self.A_modified
+        if self.adjlist_modified is not None:
+            self.set_adjlist(self.adjlist_modified)
+        if self.new_Gamma is not None and self.new_Beta is not None:
+            super().add_infection_event_rates(self.new_Beta)
+            super().add_recover_event_rates(self.new_Gamma)
+        self._prune_IS_edges()
+        ## Need to clear the list and re-start the IS list and the current in/out degree dictionaries
+        current_infected_nodes = list(node.get_left_node() for node in self._potential_IS_events._event_list)
+        unique_current = []
+        new_N = len(self._adjlist)
+        for node in current_infected_nodes:
+            if node.get_label() not in unique_current:
+                if node.get_label() < new_N:
+                    self._add_IS_events(node)
+                    unique_current.append(node.get_label())

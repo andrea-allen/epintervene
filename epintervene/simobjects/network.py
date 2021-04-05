@@ -180,7 +180,7 @@ def visualize(N, graph, pos, gen_collection):
     # gen_labels_map[10]=''
     # gen_labels_map[20]=''
     # gen_labels_map[30]=''
-    nx.draw_networkx_labels(G, pos=pos, with_labels=True, labels=gen_labels_map)
+    # nx.draw_networkx_labels(G, pos=pos, with_labels=True, labels=gen_labels_map)
     nx.draw_networkx_edges(G, pos=pos, edge_color='grey', lw=2)
 
     # V = nx.Graph()
