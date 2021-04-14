@@ -199,6 +199,7 @@ class Simulation:
         event_catolog = [self._potential_IS_events, self._potential_recovery_events]
         # note: to optimize, going to stop updating IS edges before this step. it will throw off tau by a tiny bit, but usually only by 1 or 2 events and shouldn't affect the whole distribution
         tau = draw_tau(event_catolog, uniform_rate=self.use_uniform_rate)
+        self._current_sim_time += tau
 
         self._time_series.append(self._time_series[-1] + tau)
         self._real_time_srs_infc.append(len(self._current_infected_nodes))
@@ -235,7 +236,6 @@ class Simulation:
                 recovery_event.recover()
                 self._update_IS_events(recovery_event=recovery_event)
                 self._recovered_nodes.append(recovery_event)
-        self._current_sim_time += tau
 
     def _update_IS_events(self, infection_IS_event=None, recovery_event=None):
         if infection_IS_event is not None:
