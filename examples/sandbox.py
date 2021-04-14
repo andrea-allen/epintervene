@@ -26,18 +26,19 @@ def optimizing():
     nb = network.NetworkBuilder
     powerlaw = power_law_degree_distrb(mu=100)
     start_time=time.time()
-    degree_distrb = binomial_degree_distb(400, 2.5)
+    degree_distrb = binomial_degree_distb(400, 6)
     # degree_distrb = powerlaw
     print(f'net work time {time.time()-start_time}')
 
 
     # Creating a network from a power law degree distribution
-    G, pos = nb.from_degree_distribution(10000, degree_distrb)
+    G, pos = nb.from_degree_distribution(1000, degree_distrb)
     adjlist = nb.create_adjacency_list(G)
 
     A = np.array(nx.adjacency_matrix(G).todense())
     start_time = time.time()
-    for i in range(1):
+    for i in range(100):
+        print(i)
         sim = simulation.Simulation(adj_matrix=A, adj_list=adjlist, N=len(A))
         # sim = extended_simulation.RandomRolloutSimulation(adjmatrix=A, adjlist=adjlist, N=len(A))
         # sim.set_adjlist(adjlist)
@@ -325,12 +326,12 @@ def membership():
 
 def create_zoo_stochastic_block_model(N=300, tiger_bird_block = 0.01, bird_elephant_block = 0.02, tiger_elephant_block = 0.005):
     A = np.zeros((N, N))
-    tiger_block = 0.15
-    bird_block = 0.15
-    elephant_block = 0.2
-    tiger_bird_block = tiger_bird_block
-    bird_elephant_block = bird_elephant_block
-    tiger_elephant_block = tiger_elephant_block
+    tiger_block = 10/N
+    bird_block = 10/N
+    elephant_block = 20/N
+    tiger_bird_block = tiger_bird_block/N
+    bird_elephant_block = bird_elephant_block/N
+    tiger_elephant_block = tiger_elephant_block/N
 
     tiger_pop = int(len(A)/3)
     bird_pop = int(len(A)/3)
@@ -377,7 +378,7 @@ def create_zoo_stochastic_block_model(N=300, tiger_bird_block = 0.01, bird_eleph
     nx.draw_networkx_nodes(G, pos, G.nodes(), node_color=node_colors.values(), node_size=20)
     nx.draw_networkx_edges(G, pos)
     plt.title('Tigers (blue), Bird (red), Elephant (orange) network')
-    plt.show()
+    # plt.show()
     return G, pos, A
 
 def temporal_intervention():
@@ -385,8 +386,8 @@ def temporal_intervention():
     # Creating a network from a Stochastic Block Model
     intervention_time = 0.5
     nb = network.NetworkBuilder
-    G, pos, A = create_zoo_stochastic_block_model(N=300)
-    G_switch, pos, A_switch = create_zoo_stochastic_block_model(N=300, tiger_bird_block=0,bird_elephant_block=0,tiger_elephant_block=0)
+    G, pos, A = create_zoo_stochastic_block_model(N=3000)
+    G_switch, pos, A_switch = create_zoo_stochastic_block_model(N=3000, tiger_bird_block=0,bird_elephant_block=0,tiger_elephant_block=0)
     adjlist = nb.create_adjacency_list(G)
     adjlist_switch = nb.create_adjacency_list(G_switch)
     # SIR model sandbox, want to have different curves for different group memberships
@@ -417,6 +418,7 @@ def temporal_intervention():
     rec_reg_results = np.zeros(1000)
     inft_results = np.zeros(1000)
     rec_results = np.zeros(1000)
+    start_t = time.time()
     for i in range(100):
         print(i)
         sim_regular = simulation.Simulation(N=len(A), adj_matrix=A, adj_list=adjlist,
@@ -439,6 +441,7 @@ def temporal_intervention():
         ts, infct, rec = sim.tabulate_continuous_time(time_buckets=1000, custom_range=True, custom_t_lim=6)
         inft_results += infct
         rec_results += rec
+    print(f'total time was {time.time()-start_t}')
 
     inft_reg_results = inft_reg_results/100
     rec_reg_results = rec_reg_results/100
@@ -498,7 +501,7 @@ def binomial_degree_distb(N, lam=6):
 if __name__=='__main__':
     # visualize_network()
     # uniform_reduction()
-    # optimizing()
+    optimizing()
     # membership()
     # random_vaccination()
     # random_rollout_vaccination()

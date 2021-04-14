@@ -795,9 +795,12 @@ def draw_tau(event_catalog, uniform_rate=False):
         sum_of_rates = 0
         for i in range(len(list_of_events)):
             current_list = list_of_events[i]
-            if len(current_list)>0:
+            try:
                 rate = current_list[0].get_event_rate()
                 sum_of_rates += rate * len(current_list)
+            except IndexError:
+                continue
+
     else:
         list_of_events = [item for sublist in list_of_events for item in sublist]
         sum_of_rates = np.sum(event.get_event_rate() for event in list_of_events)
@@ -846,8 +849,11 @@ def draw_event(event_list, use_uniform_rate=False):
     while not accepted:
         random_idx = np.random.randint(0, L)
         random_event = event_list._event_list[random_idx]
-        accept_rate = random_event.get_event_rate() / max_rate
-        random_draw = random.uniform(0, 1)
-        if random_draw < accept_rate:
-            accepted = True
+        if not use_uniform_rate:
+            accept_rate = random_event.get_event_rate() / max_rate
+            random_draw = random.uniform(0, 1)
+            if random_draw < accept_rate:
+                accepted = True
+        else:
+            return random_event
     return random_event
