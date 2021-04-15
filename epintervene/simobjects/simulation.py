@@ -108,10 +108,13 @@ class Simulation:
     def set_uniform_gamma(self, gamma):
         self._uniform_gamma = gamma
 
-    def _initialize_patient_zero(self):
+    def _initialize_patient_zero(self, label=None):
         if self._N==0:
             self._N = len(self._A[0])
-        p_zero_idx = random.randint(0, self._N - 1)
+        if label is None:
+            p_zero_idx = random.randint(0, self._N - 1)
+        elif label is not None:
+            p_zero_idx = label
         if self._Gamma is None and self._uniform_gamma is None:
             raise AttributeError(self._Gamma,
                                  'Please provide a recovery vector Gamma to the simulation via the '

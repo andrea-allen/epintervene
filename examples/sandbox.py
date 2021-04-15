@@ -22,6 +22,61 @@ def visualize_network():
     sim.set_uniform_gamma(0.001)
     sim.run_sim(wait_for_recovery=False, uniform_rate=True, visualize=True, viz_graph=G, viz_pos=pos)
 
+def chain_degree_dist(N):
+    p_k = np.zeros(N)
+    p_k[0] = 0
+    p_k[1] = .01
+    p_k[2] = .99
+    return p_k
+def chain_network():
+    nb = network.NetworkBuilder
+    chain_net = chain_degree_dist(10)
+    start_time=time.time()
+    # degree_distrb = binomial_degree_distb(400, 6)
+    # degree_distrb = powerlaw
+    print(f'net work time {time.time()-start_time}')
+
+
+    # Creating a network from a power law degree distribution
+    G, pos = nb.from_degree_distribution(1000, chain_net)
+    adjlist = nb.create_adjacency_list(G)
+
+    A = np.array(nx.adjacency_matrix(G).todense())
+    start_time = time.time()
+    for i in range(100):
+        print(i)
+        sim = simulation.Simulation(adj_matrix=A, adj_list=adjlist, N=len(A))
+        sim.set_uniform_beta(0.01)
+        sim.set_uniform_gamma(0.00001)
+
+        sim.run_sim(wait_for_recovery=False, uniform_rate=True)
+        ts, infect_ts, recover_ts = sim.tabulate_continuous_time(1000)
+        plt.figure(1, frameon=True)
+        plt.plot(ts, infect_ts, color='blue', lw=2, label='Infected')
+        # plt.plot(ts, recover_ts, color='green', label='Recovered')
+        plt.xlabel('Time', fontsize=12)
+        plt.ylabel('Infections', fontsize=12)
+        # plt.ylabel('Number of nodes in class')
+        # plt.legend(loc='upper left')
+        # plt.xticks([])
+        # plt.yticks([])
+        # plt.title('SIR Continuous Time Results for Random Intervention Simulation')
+        # plt.show()
+
+        ts_by_gen = sim.tabulate_generation_results(20)
+        plt.figure(2)
+        plt.plot(np.arange(len(ts_by_gen)), ts_by_gen)
+        plt.scatter(np.arange(len(ts_by_gen)), ts_by_gen)
+        plt.xlabel('Generation number')
+        plt.ylabel('Cumulative infections by generation')
+        plt.title('SIR Generational Cumulative Results for Random Intervention Simulation')
+        plt.show()
+    print(f'Total time for all sim took {time.time()-start_time}')
+
+
+
+
+
 def optimizing():
     nb = network.NetworkBuilder
     powerlaw = power_law_degree_distrb(mu=100)
@@ -501,11 +556,12 @@ def binomial_degree_distb(N, lam=6):
 if __name__=='__main__':
     # visualize_network()
     # uniform_reduction()
-    optimizing()
+    chain_network()
+    # optimizing()
     # membership()
     # random_vaccination()
     # random_rollout_vaccination()
-    temporal_intervention()
+    # temporal_intervention()
 
 
 
