@@ -166,7 +166,7 @@ class Simulation:
             for node in self._potential_recovery_events._event_list:
                 node.set_event_rate(self._Gamma[node.get_label()])
 
-    def run_sim(self, with_memberships=False, uniform_rate=True, wait_for_recovery=False, visualize=False, viz_graph=None, viz_pos=None):
+    def run_sim(self, with_memberships=False, uniform_rate=True, wait_for_recovery=False, visualize=False, viz_graph=None, viz_pos=None, p_zero=None):
         """
         Main method for running a single realization of the epidemic simulation.
 
@@ -183,7 +183,7 @@ class Simulation:
             self.track_memberships = True
         if self.track_memberships:
             self._init_membership_state_time_series()
-        self._initialize_patient_zero()
+        self._initialize_patient_zero(label=p_zero)
         while self._current_sim_time < self.total_sim_time:
             # Run one step
             self._single_step(uniform_rate=uniform_rate, visualize=visualize, viz_graph=viz_graph, viz_pos=viz_pos)
