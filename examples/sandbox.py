@@ -31,6 +31,7 @@ def chain_degree_dist(N):
 def chain_network():
     nb = network.NetworkBuilder
     chain_net = chain_degree_dist(10)
+    plaw = power_law_degree_distrb(10, 2, 30)
     start_time=time.time()
     # degree_distrb = binomial_degree_distb(400, 6)
     # degree_distrb = powerlaw
@@ -38,7 +39,45 @@ def chain_network():
 
 
     # Creating a network from a power law degree distribution
-    G, pos = nb.from_degree_distribution(1000, chain_net)
+    G, pos = nb.from_degree_distribution(500, plaw)
+    # G = nx.generators.balanced_tree(2, 5)
+    # G = nx.Graph()
+    # G.add_nodes_from(list(np.arange(40)))
+    # for i in range(39):
+    #     G.add_edge(i, i+1)
+    # G = nx.generators.balanced_tree(2, 5)
+    # G.add_edges_from([(0,63), (63,64), (63,65), (64,66), (64,67), (65,68), (68,69)])
+    # G = nx.generators.complete_graph(10)
+    nx.draw(G, with_labels=True)
+    plt.show()
+
+    ### STAR NETWORK
+    G = nx.Graph()
+    G.add_nodes_from([0])
+
+    arm_length = 5
+    range1 = np.arange(arm_length, arm_length+arm_length)
+    range2 = np.arange(arm_length+arm_length, arm_length+arm_length*2)
+    range3 = np.arange(arm_length+arm_length*2, arm_length+arm_length*3)
+    range4 = np.arange(arm_length+arm_length*3, arm_length+arm_length*4)
+    G.add_edge(0,1)
+    G.add_edge(0,2)
+    G.add_edge(0,3)
+    G.add_edge(0,4)
+    G.add_edge(1, range1[0])
+    G.add_edge(2, range2[0])
+    G.add_edge(3, range3[0])
+    G.add_edge(4, range4[0])
+    for j in range(len(range1)-1):
+        G.add_edge(range1[j], range1[j+1])
+        G.add_edge(range2[j], range2[j+1])
+        G.add_edge(range3[j], range3[j+1])
+        G.add_edge(range4[j], range4[j+1])
+    nx.draw(G, with_labels=True)
+    plt.show()
+
+
+    pos = nx.spring_layout(G)
     adjlist = nb.create_adjacency_list(G)
 
     A = np.array(nx.adjacency_matrix(G).todense())
@@ -46,16 +85,16 @@ def chain_network():
     for i in range(100):
         print(i)
         sim = simulation.Simulation(adj_matrix=A, adj_list=adjlist, N=len(A))
-        sim.set_uniform_beta(0.01)
+        sim.set_uniform_beta(0.99)
         sim.set_uniform_gamma(0.00001)
 
-        sim.run_sim(wait_for_recovery=False, uniform_rate=True)
+        sim.run_sim(wait_for_recovery=False, uniform_rate=True, viz_pos=pos, viz_graph=G, visualize=True, p_zero=0)
         ts, infect_ts, recover_ts = sim.tabulate_continuous_time(1000)
-        plt.figure(1, frameon=True)
-        plt.plot(ts, infect_ts, color='blue', lw=2, label='Infected')
-        # plt.plot(ts, recover_ts, color='green', label='Recovered')
-        plt.xlabel('Time', fontsize=12)
-        plt.ylabel('Infections', fontsize=12)
+        # plt.figure(1, frameon=True)
+        # plt.plot(ts, infect_ts, color='blue', lw=2, label='Infected')
+        # # plt.plot(ts, recover_ts, color='green', label='Recovered')
+        # plt.xlabel('Time', fontsize=12)
+        # plt.ylabel('Infections', fontsize=12)
         # plt.ylabel('Number of nodes in class')
         # plt.legend(loc='upper left')
         # plt.xticks([])
@@ -63,14 +102,14 @@ def chain_network():
         # plt.title('SIR Continuous Time Results for Random Intervention Simulation')
         # plt.show()
 
-        ts_by_gen = sim.tabulate_generation_results(20)
-        plt.figure(2)
-        plt.plot(np.arange(len(ts_by_gen)), ts_by_gen)
-        plt.scatter(np.arange(len(ts_by_gen)), ts_by_gen)
-        plt.xlabel('Generation number')
-        plt.ylabel('Cumulative infections by generation')
-        plt.title('SIR Generational Cumulative Results for Random Intervention Simulation')
-        plt.show()
+        # ts_by_gen = sim.tabulate_generation_results(20)
+        # plt.figure(2)
+        # plt.plot(np.arange(len(ts_by_gen)), ts_by_gen)
+        # plt.scatter(np.arange(len(ts_by_gen)), ts_by_gen)
+        # plt.xlabel('Generation number')
+        # plt.ylabel('Cumulative infections by generation')
+        # plt.title('SIR Generational Cumulative Results for Random Intervention Simulation')
+        # plt.show()
     print(f'Total time for all sim took {time.time()-start_time}')
 
 

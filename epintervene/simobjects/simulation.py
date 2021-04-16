@@ -226,6 +226,10 @@ class Simulation:
                     self._gen_collection[infection_event.get_right_node().get_generation()] = [
                         infection_event.get_right_node().get_label()]
                     self._highest_gen += 1
+                    print(self._highest_gen)
+                    if self._highest_gen==2:
+                        if (self._highest_gen+1 == len(self._current_infected_nodes)):
+                            print('yes')
                     self._generational_emergence[self._highest_gen] = self._current_sim_time
                 self._update_IS_events(infection_IS_event=infection_event)
                 self._add_IS_events(infection_event.get_right_node())
@@ -810,6 +814,7 @@ def draw_tau(event_catalog, uniform_rate=False):
     if sum_of_rates == 0:
         sum_of_rates += .0001
     tau = np.random.exponential(1 / sum_of_rates)
+    print(1/sum_of_rates)
     return tau
 
 

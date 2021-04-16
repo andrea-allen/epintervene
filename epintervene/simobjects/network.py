@@ -142,6 +142,11 @@ class NetworkBuilder:
     def create_adjacency_list(G):
         adjlist = list(list(map(int, minilist)) for minilist in list(map(str.split, nx.generate_adjlist(G))))
 
+        corrected_adjlist = list(list() for i in range(len(adjlist)))
+        for entry in adjlist:
+            corrected_adjlist[entry[0]] = entry
+
+        adjlist = corrected_adjlist
         # make adjlist symmetric:
         len_adj = len(adjlist)
         for row in adjlist:
