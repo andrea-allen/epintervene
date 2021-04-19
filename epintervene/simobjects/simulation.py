@@ -57,12 +57,15 @@ class Simulation:
         self._current_infected_nodes = []
         self._highest_gen = 0
         self._gen_collection = {}
+        self._gen_collection_active = {}
         self._active_nodes = []
         self._active_node_dict = {}
         self._total_num_timesteps = 0
         self._time_series = [0]
         self._real_time_srs_infc = []
         self._real_time_srs_rec = []
+        self.active_gen_ts = []
+        self.total_gen_ts = []
         self._generational_emergence = {0: 0}
         self._membership_groups = membership_groups
         self._membership_time_series_infc = {0: []}
@@ -70,6 +73,7 @@ class Simulation:
         self.track_memberships = False
         self.use_uniform_rate = True
         self._node_memberships = node_memberships
+        self.infectious_degree_counter = []
 
 
     def get_Beta(self):
@@ -80,6 +84,9 @@ class Simulation:
 
     def get_gen_collection(self):
         return self._gen_collection
+
+    def get_gen_collection_active(self):
+        return self._gen_collection_active
 
     def get_generational_emergence(self):
         return self._generational_emergence
@@ -133,6 +140,9 @@ class Simulation:
         self._active_node_dict[p_zero_idx] = patient_zero
         self._current_infected_nodes.append(patient_zero)
         self._gen_collection[0] = [p_zero_idx]
+        self._gen_collection_active[0] = [p_zero_idx]
+        self.active_gen_ts.append(1)
+        self.total_gen_ts.append(1)
         self._potential_recovery_events.add_to_event_list(patient_zero)
         self._out_degree_IS_events[p_zero_idx] = []
         self._add_IS_events(patient_zero)
@@ -222,15 +232,19 @@ class Simulation:
                 try:
                     self._gen_collection[infection_event.get_right_node().get_generation()].append(
                         infection_event.get_right_node().get_label())
+                    self._gen_collection_active[infection_event.get_right_node().get_generation()].append(
+                        infection_event.get_right_node().get_label())
+                    self.active_gen_ts.append(self.active_gen_ts[-1])
+                    self.total_gen_ts.append(self.total_gen_ts[-1])
                 except KeyError:  # Need a better way than KeyError to catch a new generation
                     self._gen_collection[infection_event.get_right_node().get_generation()] = [
                         infection_event.get_right_node().get_label()]
+                    self._gen_collection_active[infection_event.get_right_node().get_generation()] = [
+                        infection_event.get_right_node().get_label()]
                     self._highest_gen += 1
-                    print(self._highest_gen)
-                    if self._highest_gen==2:
-                        if (self._highest_gen+1 == len(self._current_infected_nodes)):
-                            print('yes')
                     self._generational_emergence[self._highest_gen] = self._current_sim_time
+                    self.active_gen_ts.append(self.active_gen_ts[-1]+1)
+                    self.total_gen_ts.append(self.total_gen_ts[-1]+1)
                 self._update_IS_events(infection_IS_event=infection_event)
                 self._add_IS_events(infection_event.get_right_node())
             if event_class._event_type == eventtype.EventType.RECOVER:
@@ -243,6 +257,15 @@ class Simulation:
                 recovery_event.recover()
                 self._update_IS_events(recovery_event=recovery_event)
                 self._recovered_nodes.append(recovery_event)
+                self._gen_collection_active[recovery_event.get_generation()].remove(recovery_event.get_label())
+                if len(self._gen_collection_active[recovery_event.get_generation()])==0:
+                    if self.active_gen_ts[-1] == 0:
+                        self.active_gen_ts.append(self.active_gen_ts[-1])
+                    else:
+                        self.active_gen_ts.append(self.active_gen_ts[-1] - 1)
+                else:
+                    self.active_gen_ts.append(self.active_gen_ts[-1])
+                self.total_gen_ts.append(self.total_gen_ts[-1])
 
     def _update_IS_events(self, infection_IS_event=None, recovery_event=None):
         if infection_IS_event is not None:
@@ -281,6 +304,7 @@ class Simulation:
         if len(infection_adjlist)>1:
             infected_label = infected_node.get_label()
             length = len(infection_adjlist)
+            self.infectious_degree_counter.append(length-2) #subtract 2, 1 for itself (1st list entry) and 1 for the edge it got infected by
             for n in range(1, length):
                 j = infection_adjlist[n]
                 if self.use_uniform_rate:
@@ -369,7 +393,7 @@ class Simulation:
                 m = 0
         return infection_time_srs_by_gen
 
-    def tabulate_continuous_time(self, time_buckets=100, custom_range=False, custom_t_lim=100):
+    def tabulate_continuous_time(self, time_buckets=100, custom_range=False, custom_t_lim=100, active_gen_info=False):
         """
         Compile the results from the simulation as a time series.
 
@@ -384,31 +408,36 @@ class Simulation:
             time_partition = np.linspace(0, custom_t_lim, time_buckets, endpoint=False)
         infection_time_series = np.zeros(len(time_partition))
         recover_time_series = np.zeros(len(time_partition))
+        active_gen_time_series = np.zeros(len(time_partition))
+        total_gen_time_series = np.zeros(len(time_partition))
         ts_length = len(self._time_series)
 
+        idx_floor = 0
         try:
             for t in range(ts_length - 1):
                 real_time_val = self._time_series[t]
                 real_time_infected = self._real_time_srs_infc[t]
-                for idx in range(time_buckets):
+                real_time_recovered = self._real_time_srs_rec[t]
+                real_time_active_gens = self.active_gen_ts[t]
+                real_time_total_gens = self.total_gen_ts[t]
+                found_soonest = False
+                idx = idx_floor
+                while not found_soonest:
                     upper_val = time_partition[idx]
-                    if real_time_val < upper_val:
-                        infection_time_series[idx] = real_time_infected
+                    if real_time_val <= upper_val:
+                        idx_floor = idx
+                        infection_time_series[idx:] = real_time_infected
+                        recover_time_series[idx:] = real_time_recovered
+                        active_gen_time_series[idx:] = real_time_active_gens
+                        total_gen_time_series[idx:] = real_time_total_gens
+                        found_soonest = True
+                    idx += 1
+
         except IndexError:
             print('No values for infection time series')
 
-        try:
-            for t in range(ts_length - 1):
-                real_time_val = self._time_series[t]
-                real_time_recovered = self._real_time_srs_rec[t]
-                # determine what index it goes in
-                for idx in range(time_buckets):
-                    upper_val = time_partition[idx]
-                    if real_time_val < upper_val:
-                        recover_time_series[idx] = real_time_recovered
-        except IndexError:
-            print('No values for recovery time series')
-
+        if active_gen_info:
+            return time_partition, infection_time_series, recover_time_series, active_gen_time_series, total_gen_time_series
         return time_partition, infection_time_series, recover_time_series
 
     def tabulate_continuous_time_with_groups(self, time_buckets=100, custom_range=False, custom_t_lim=100):
@@ -814,7 +843,7 @@ def draw_tau(event_catalog, uniform_rate=False):
     if sum_of_rates == 0:
         sum_of_rates += .0001
     tau = np.random.exponential(1 / sum_of_rates)
-    print(1/sum_of_rates)
+    # print(1/sum_of_rates)
     return tau
 
 

@@ -31,15 +31,15 @@ def chain_degree_dist(N):
 def chain_network():
     nb = network.NetworkBuilder
     chain_net = chain_degree_dist(10)
-    plaw = power_law_degree_distrb(10, 2, 30)
+    plaw = power_law_degree_distrb(400)
     start_time=time.time()
-    # degree_distrb = binomial_degree_distb(400, 6)
+    degree_distrb = binomial_degree_distb(400, 2.5)
     # degree_distrb = powerlaw
     print(f'net work time {time.time()-start_time}')
 
 
     # Creating a network from a power law degree distribution
-    G, pos = nb.from_degree_distribution(500, plaw)
+    G, pos = nb.from_degree_distribution(10000, degree_distrb)
     # G = nx.generators.balanced_tree(2, 5)
     # G = nx.Graph()
     # G.add_nodes_from(list(np.arange(40)))
@@ -48,48 +48,100 @@ def chain_network():
     # G = nx.generators.balanced_tree(2, 5)
     # G.add_edges_from([(0,63), (63,64), (63,65), (64,66), (64,67), (65,68), (68,69)])
     # G = nx.generators.complete_graph(10)
-    nx.draw(G, with_labels=True)
-    plt.show()
+    # nx.draw(G, with_labels=True)
+    # plt.show()
 
     ### STAR NETWORK
-    G = nx.Graph()
-    G.add_nodes_from([0])
-
-    arm_length = 5
-    range1 = np.arange(arm_length, arm_length+arm_length)
-    range2 = np.arange(arm_length+arm_length, arm_length+arm_length*2)
-    range3 = np.arange(arm_length+arm_length*2, arm_length+arm_length*3)
-    range4 = np.arange(arm_length+arm_length*3, arm_length+arm_length*4)
-    G.add_edge(0,1)
-    G.add_edge(0,2)
-    G.add_edge(0,3)
-    G.add_edge(0,4)
-    G.add_edge(1, range1[0])
-    G.add_edge(2, range2[0])
-    G.add_edge(3, range3[0])
-    G.add_edge(4, range4[0])
-    for j in range(len(range1)-1):
-        G.add_edge(range1[j], range1[j+1])
-        G.add_edge(range2[j], range2[j+1])
-        G.add_edge(range3[j], range3[j+1])
-        G.add_edge(range4[j], range4[j+1])
-    nx.draw(G, with_labels=True)
-    plt.show()
-
-
-    pos = nx.spring_layout(G)
+    # G = nx.Graph()
+    # G.add_nodes_from([0])
+    #
+    # arm_length = 5
+    # range1 = np.arange(arm_length, arm_length+arm_length)
+    # range2 = np.arange(arm_length+arm_length, arm_length+arm_length*2)
+    # range3 = np.arange(arm_length+arm_length*2, arm_length+arm_length*3)
+    # range4 = np.arange(arm_length+arm_length*3, arm_length+arm_length*4)
+    # G.add_edge(0,1)
+    # G.add_edge(0,2)
+    # G.add_edge(0,3)
+    # G.add_edge(0,4)
+    # G.add_edge(1, range1[0])
+    # G.add_edge(2, range2[0])
+    # G.add_edge(3, range3[0])
+    # G.add_edge(4, range4[0])
+    # for j in range(len(range1)-1):
+    #     G.add_edge(range1[j], range1[j+1])
+    #     G.add_edge(range2[j], range2[j+1])
+    #     G.add_edge(range3[j], range3[j+1])
+    #     G.add_edge(range4[j], range4[j+1])
+    # nx.draw(G, with_labels=True)
+    # plt.show()
+    #
+    #
+    # pos = nx.spring_layout(G)
     adjlist = nb.create_adjacency_list(G)
 
     A = np.array(nx.adjacency_matrix(G).todense())
-    start_time = time.time()
-    for i in range(100):
-        print(i)
-        sim = simulation.Simulation(adj_matrix=A, adj_list=adjlist, N=len(A))
-        sim.set_uniform_beta(0.99)
-        sim.set_uniform_gamma(0.00001)
 
-        sim.run_sim(wait_for_recovery=False, uniform_rate=True, viz_pos=pos, viz_graph=G, visualize=True, p_zero=0)
-        ts, infect_ts, recover_ts = sim.tabulate_continuous_time(1000)
+    dd_g = np.array(nx.degree_histogram(G)) / (
+        sum(nx.degree_histogram(G)))
+    avg = 0
+    for k in range(len(dd_g)):
+        avg += k * dd_g[k]
+
+    Gcc = sorted(nx.connected_components(G), key=len, reverse=True)
+    G0 = G.subgraph(Gcc[0])
+    dd_gcc = np.array(nx.degree_histogram(G0)) / (
+        sum(nx.degree_histogram(G0)))
+    Gcc_avg = 0
+    for k in range(len(dd_gcc)):
+        Gcc_avg += k * dd_gcc[k]
+    dd_g1 = g1_of(dd_gcc)
+    Gcc_avg_excess = z1_of(dd_g1)
+
+
+    start_time = time.time()
+    total_infectious_degree_counter = 0
+    number_took_off = 0
+    averaging_active = None
+    averaging_total = None
+    averaging_count = 0
+    gen_results_average = np.zeros(100)
+    for i in range(30):
+        print(f'sim number{i}')
+        sim = simulation.Simulation(adj_matrix=A, adj_list=adjlist, N=len(A))
+        sim.set_uniform_beta(0.004)
+        sim.set_uniform_gamma(0.001)
+
+        time_s = time.time()
+        sim.run_sim(wait_for_recovery=False, uniform_rate=True, viz_pos=pos, viz_graph=G, visualize=False, p_zero=None)
+        actual_run_time = time.time()-time_s
+        print(f'sim time was {actual_run_time}')
+        # current_counter = sim.infectious_degree_counter
+        # if len(current_counter)>0:
+        #     print(f'len of counter {len(current_counter)}')
+        #     if len(current_counter)>100:
+        #         total_infectious_degree_counter += sum(sim.infectious_degree_counter)/(len(sim.infectious_degree_counter))
+        #         number_took_off += 1
+        time_s = time.time()
+        ts, infect_ts, recover_ts, active_gen_ts, total_gen_ts = sim.tabulate_continuous_time(1000, custom_range=True, custom_t_lim=5000, active_gen_info=True)
+        ts, infect_ts, recover_ts = sim.tabulate_continuous_time(1000, custom_range=True, custom_t_lim=5000)
+        print(f'result counting time was {time.time()-time_s}')
+        # plt.plot(ts, infect_ts, color='red')
+        # plt.plot(ts, recover_ts, color='green')
+        # plt.show()
+        time_s = time.time()
+        gen_results = sim.tabulate_generation_results(100)
+        print(f'generation counting time was {time.time()-time_s}')
+        if averaging_active is None:
+            averaging_active = np.array(active_gen_ts)
+            averaging_total = np.array(total_gen_ts)
+        else:
+            print(np.array(total_gen_ts)[-1])
+            if total_gen_ts[-1] > 2:
+                averaging_active += np.array(active_gen_ts)
+                averaging_total += np.array(total_gen_ts)
+                averaging_count += 1
+        gen_results_average += gen_results
         # plt.figure(1, frameon=True)
         # plt.plot(ts, infect_ts, color='blue', lw=2, label='Infected')
         # # plt.plot(ts, recover_ts, color='green', label='Recovered')
@@ -110,6 +162,14 @@ def chain_network():
         # plt.ylabel('Cumulative infections by generation')
         # plt.title('SIR Generational Cumulative Results for Random Intervention Simulation')
         # plt.show()
+    # print(active_gen_ts, total_gen_ts)
+    plt.plot(ts, averaging_active / averaging_count, label='active gens')
+    plt.plot(ts, averaging_total / averaging_count, label='total gens')
+    plt.legend(loc='upper left')
+    plt.show()
+    plt.plot(gen_results_average/30)
+    plt.show()
+    print(f'total infectious degree avg {total_infectious_degree_counter/number_took_off}')
     print(f'Total time for all sim took {time.time()-start_time}')
 
 
@@ -591,6 +651,18 @@ def binomial_degree_distb(N, lam=6):
     for k in range(0, len(p_k)):
         p_k[k] = (p ** k) * ((1 - p) ** (N - k)) * math.comb(N, k)
     return p_k
+
+def z1_of(g_0):
+    z1 = 0
+    for k in range(len(g_0)):
+        z1 += (k * g_0[k])
+    return z1
+
+def g1_of(g_0):
+    g_1 = np.zeros(len(g_0))
+    for k in range(len(g_0) - 1):
+        g_1[k] = (k + 1) * g_0[k + 1]
+    return g_1 / (z1_of(g_0))
 
 if __name__=='__main__':
     # visualize_network()
