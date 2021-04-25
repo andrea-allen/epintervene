@@ -136,7 +136,7 @@ def chain_network():
         #         total_infectious_degree_counter += sum(sim.infectious_degree_counter)/(len(sim.infectious_degree_counter))
         #         number_took_off += 1
         # time_s = time.time()
-        ts, infect_ts, recover_ts, active_gen_ts, total_gen_ts = sim.tabulate_continuous_time(1000, custom_range=True, custom_t_lim=500000, active_gen_info=True)
+        ts, infect_ts, recover_ts, active_gen_ts, total_gen_ts = sim.tabulate_continuous_time(1000, custom_range=True, custom_t_lim=5000, active_gen_info=True)
         # ts, infect_ts, recover_ts = sim.tabulate_continuous_time(1000, custom_range=True, custom_t_lim=5000)
         if full_ts is None:
             full_ts = ts
@@ -781,6 +781,32 @@ def speed_random():
     print(f'Timing Unfirom time {time_with_timing}')
     print(f'Timing time {timing_uni}')
 
+def expovariate_versions():
+    distribution = np.zeros(1000000)
+    start_time = time.time()
+    for i in range(1000000):
+        distribution[i] = random.expovariate((10*.004+110*.001))
+    total_random_expo = time.time()-start_time
+
+    distribution_np = np.zeros(1000000)
+    start_time = time.time()
+    for i in range(1000000):
+        distribution_np[i] = np.random.exponential(1/(10*.004+110*.001))
+    total_np_random_expo = time.time()-start_time
+
+    print(f'Random time {total_random_expo}')
+    print(f'Random numpy time {total_np_random_expo}')
+
+    plt.figure('random')
+    plt.hist(distribution, bins=100, label='random', alpha=0.5)
+
+    # plt.figure('numpy')
+    plt.hist(distribution_np, bins=100, label='numpy random', alpha=0.5)
+    plt.legend(loc='upper right')
+
+    plt.show()
+
+
 
 if __name__=='__main__':
     # visualize_network()
@@ -789,6 +815,7 @@ if __name__=='__main__':
     # optimizing()
     # sim_testing()
     # speed_random()
+    expovariate_versions()
     # membership()
     # random_vaccination()
     # random_rollout_vaccination()

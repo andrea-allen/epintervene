@@ -423,7 +423,7 @@ class Simulation:
         partition_end_markers[1] = num_of_infection_possible_events*self._uniform_beta + num_of_recovery_events*self._uniform_gamma
         random_draw = random.uniform(0, partition_end_markers[1])
         sum_of_rates = (self._uniform_beta * num_of_infection_possible_events + self._uniform_gamma * num_of_recovery_events)
-        tau = random.expovariate(1 / max(sum_of_rates, .0000001))
+        tau = random.expovariate(max(sum_of_rates, .0000001))
         if random_draw < partition_end_markers[0]:
             found_next_event = None
             while found_next_event is None:
@@ -918,7 +918,7 @@ def draw_tau(event_catalog, uniform_rate=False):
         sum_of_rates = np.sum(event.get_event_rate() for event in list_of_events)
     if sum_of_rates == 0:
         sum_of_rates += .0001
-    tau = random.expovariate(1 / sum_of_rates)
+    tau = random.expovariate(sum_of_rates)
     # print(1/sum_of_rates)
     return tau
 
