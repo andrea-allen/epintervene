@@ -107,6 +107,7 @@ def chain_network():
     total_infectious_degree_counter = 0
     number_took_off = 0
     averaging_active = None
+    average_active_sizes = None
     averaging_total = None
     averaging_count = 0
     gen_results_average = np.zeros(100)
@@ -115,7 +116,7 @@ def chain_network():
     full_ts_rec = None
     generational_distribution = np.zeros((100, len(A)))
 
-    num_sims = 100
+    num_sims = 30
 
     for i in range(num_sims):
         if i % 30 == 0:
@@ -125,7 +126,8 @@ def chain_network():
         sim.set_uniform_gamma(0.001)
 
         # time_s = time.time()
-        sim.run_sim(wait_for_recovery=False, uniform_rate=True, viz_pos=pos, viz_graph=G, visualize=False, p_zero=None, kill_by=16)
+        sim.run_sim(wait_for_recovery=False, uniform_rate=True, viz_pos=pos, viz_graph=G, visualize=False, p_zero=None,
+                    kill_by=16, record_active_gen_sizes=True)
         # actual_run_time = time.time()-time_s
         # total_sim_time += time.time() - time_s
         # print(f'sim time was {actual_run_time}')
@@ -136,7 +138,8 @@ def chain_network():
         #         total_infectious_degree_counter += sum(sim.infectious_degree_counter)/(len(sim.infectious_degree_counter))
         #         number_took_off += 1
         # time_s = time.time()
-        ts, infect_ts, recover_ts, active_gen_ts, total_gen_ts = sim.tabulate_continuous_time(1000, custom_range=True, custom_t_lim=5000, active_gen_info=True)
+        # ts, infect_ts, recover_ts, active_gen_ts, total_gen_ts = sim.tabulate_continuous_time(1000, custom_range=True, custom_t_lim=5000, active_gen_info=True)
+        ts, infect_ts, recover_ts, active_gen_ts, total_gen_ts, active_sizes_ts = sim.tabulate_continuous_time(1000, custom_range=True, custom_t_lim=5000, active_gen_info=True, active_gen_sizes=True)
         # ts, infect_ts, recover_ts = sim.tabulate_continuous_time(1000, custom_range=True, custom_t_lim=5000)
         if full_ts is None:
             full_ts = ts
@@ -156,11 +159,13 @@ def chain_network():
         if averaging_active is None:
             averaging_active = np.array(active_gen_ts)
             averaging_total = np.array(total_gen_ts)
+            average_active_sizes = active_sizes_ts
         else:
             # print(np.array(total_gen_ts)[-1])
             if total_gen_ts[-1] > 2:
                 averaging_active += np.array(active_gen_ts)
                 averaging_total += np.array(total_gen_ts)
+                average_active_sizes += active_sizes_ts
                 averaging_count += 1
         gen_results_average += gen_results
         for gen in range(len(gen_results)):
@@ -191,6 +196,14 @@ def chain_network():
         # plt.title('SIR Generational Cumulative Results for Random Intervention Simulation')
         # plt.show()
     # print(active_gen_ts, total_gen_ts)
+    average_active_sizes = average_active_sizes / averaging_count
+    for g in range(1, 12, 3):
+        plt.plot(average_active_sizes.T[g], label=f'generation {g}')
+    plt.legend(loc='upper right')
+    plt.xlabel('time')
+    plt.ylabel('average number active nodes')
+    plt.show()
+
     plt.plot(ts, averaging_active / averaging_count, label='active gens')
     plt.plot(ts, averaging_total / averaging_count, label='total gens')
     plt.legend(loc='upper left')

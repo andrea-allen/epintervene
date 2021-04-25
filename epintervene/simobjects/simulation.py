@@ -83,6 +83,12 @@ class Simulation:
         self._potential_IS_events_flat = []
         self._edge_keys = {}
         self._next_key = 0
+        # Idea here is a matrix, where it is a list of lists. Each row will be gens 1,100, the sizes at that time series t
+        # When it's time to tally, should use the built-in tallying function to bin into even matrix
+        self._gens_size_over_time = None
+        # In order to compute things to most efficiently, need to have the leading row of active gens counts and then just append or remove
+        #  from that count in order not to have to compute the size at every generation
+        self._current_active_gen_sizes = np.zeros(100)
 
 
     def get_Beta(self):
@@ -147,11 +153,11 @@ class Simulation:
             patient_zero.set_membership(self._node_memberships[p_zero_idx])
         self._active_nodes.append(patient_zero)
         self._active_node_dict[p_zero_idx] = patient_zero
-        # self._current_infected_nodes.append(patient_zero)
         self._gen_collection[0] = [p_zero_idx]
         self._gen_collection_active[0] = [p_zero_idx]
         self.active_gen_ts.append(1)
         self.total_gen_ts.append(1)
+        self._current_active_gen_sizes[0] = 1
         self._potential_recovery_events.add_to_event_list(patient_zero)
         self._recovery_events[p_zero_idx] = patient_zero
         self._recovery_events_keys.append(p_zero_idx)
@@ -189,7 +195,8 @@ class Simulation:
             for node in self._potential_recovery_events._event_list:
                 node.set_event_rate(self._Gamma[node.get_label()])
 
-    def run_sim(self, with_memberships=False, uniform_rate=True, wait_for_recovery=False, visualize=False, viz_graph=None, viz_pos=None, p_zero=None, kill_by=None):
+    def run_sim(self, with_memberships=False, uniform_rate=True, wait_for_recovery=False, visualize=False,
+                viz_graph=None, viz_pos=None, p_zero=None, kill_by=None, record_active_gen_sizes=False):
         """
         Main method for running a single realization of the epidemic simulation.
 
@@ -207,9 +214,12 @@ class Simulation:
         if self.track_memberships:
             self._init_membership_state_time_series()
         self._initialize_patient_zero(label=p_zero)
+        self._gens_size_over_time = []
+        self._gens_size_over_time.append(list(self._current_active_gen_sizes))
         while self._current_sim_time < self.total_sim_time:
             # Run one step
-            self._single_step(uniform_rate=uniform_rate, visualize=visualize, viz_graph=viz_graph, viz_pos=viz_pos)
+            self._single_step(uniform_rate=uniform_rate, visualize=visualize, viz_graph=viz_graph, viz_pos=viz_pos,
+                              record_active_gen_sizes=record_active_gen_sizes)
 
             self._total_num_timesteps += 1
             if self._current_number_IS_events == 0:
@@ -228,15 +238,20 @@ class Simulation:
                 return False
         return True
 
-    def _single_step(self, visualize=False, uniform_rate=True, viz_graph=None, viz_pos=None):
+    def _single_step(self, visualize=False, uniform_rate=True, viz_graph=None, viz_pos=None,
+                     record_active_gen_sizes=False):
+        # Note: record_active_gen_sizes makes the simulation twice as slow, so use with caution and only use for results needing ensembleing
+        # TODO could probably do the same with active gen sizes! Make it quicker for the generational results later
         self.use_uniform_rate = uniform_rate
         if visualize:
             self._visualize_network(viz_graph, viz_pos)
         event_class, next_event, tau = self.draw_event_class()
         self._current_sim_time += tau
         self._time_series.append(self._time_series[-1] + tau)
-        self._real_time_srs_infc.append(self._current_number_recovery_events)
+        self._real_time_srs_infc.append(self._current_number_recovery_events) #should this actually happen before the time is incremented? Like the time keeping
         self._real_time_srs_rec.append(len(self._recovered_nodes))
+        if record_active_gen_sizes:
+            self._gens_size_over_time.append(list(self._current_active_gen_sizes))
         if self.track_memberships:
             self._record_membership_states()
 
@@ -250,22 +265,25 @@ class Simulation:
                 self._max_num_recovery_events += 1
                 self._potential_recovery_events.add_to_event_list(infection_event.get_right_node())
 
-                try:
+                try: # If they are a member of an existing generation, bookkeeping will happen here:
                     self._gen_collection[infection_event.get_right_node().get_generation()].append(
                         infection_event.get_right_node().get_label())
                     self._gen_collection_active[infection_event.get_right_node().get_generation()].append(
                         infection_event.get_right_node().get_label())
-                    self.active_gen_ts.append(self.active_gen_ts[-1])
-                    self.total_gen_ts.append(self.total_gen_ts[-1])
-                except KeyError:  # Need a better way than KeyError to catch a new generation
+                    self.active_gen_ts.append(self.active_gen_ts[-1]) #Active gens stays the same this round
+                    self.total_gen_ts.append(self.total_gen_ts[-1]) #Total gens stays the same this round
+                    self._current_active_gen_sizes[infection_event.get_right_node().get_generation()] += 1 #One more active member of the generation
+                except KeyError:  # If they are the first member of a new generation, book keeping happens here
                     self._gen_collection[infection_event.get_right_node().get_generation()] = [
                         infection_event.get_right_node().get_label()]
                     self._gen_collection_active[infection_event.get_right_node().get_generation()] = [
                         infection_event.get_right_node().get_label()]
                     self._highest_gen += 1
                     self._generational_emergence[self._highest_gen] = self._current_sim_time
-                    self.active_gen_ts.append(self.active_gen_ts[-1]+1)
-                    self.total_gen_ts.append(self.total_gen_ts[-1]+1)
+                    self.active_gen_ts.append(self.active_gen_ts[-1]+1) #Active gens increases by one
+                    self.total_gen_ts.append(self.total_gen_ts[-1]+1) #Total gens increases by one
+                    self._current_active_gen_sizes[
+                        infection_event.get_right_node().get_generation()] += 1  # One more active member of the generation
                 self._update_IS_events(infection_IS_event=infection_event)
                 self._add_IS_events(infection_event.get_right_node())
             if event_class == eventtype.EventType.RECOVER:
@@ -275,18 +293,20 @@ class Simulation:
                 self._current_number_recovery_events -= 1
                 self._update_IS_events(recovery_event=recovery_event)
                 self._recovered_nodes.append(recovery_event)
+                self._current_active_gen_sizes[
+                    recovery_event.get_generation()] -= 1  # One less active member of the generation
                 try:
                     self._gen_collection_active[recovery_event.get_generation()].remove(recovery_event.get_label())
                 except ValueError:
                     pass
-                if len(self._gen_collection_active[recovery_event.get_generation()])==0:
+                if len(self._gen_collection_active[recovery_event.get_generation()])==0: #If this was the last remaining member of the generation
                     if self.active_gen_ts[-1] == 0:
-                        self.active_gen_ts.append(self.active_gen_ts[-1])
+                        self.active_gen_ts.append(self.active_gen_ts[-1]) # If active generations is already 0, then stays at 0
                     else:
-                        self.active_gen_ts.append(self.active_gen_ts[-1] - 1)
+                        self.active_gen_ts.append(self.active_gen_ts[-1] - 1) # Otherwise, reduces active generations by 1
                 else:
                     self.active_gen_ts.append(self.active_gen_ts[-1])
-                self.total_gen_ts.append(self.total_gen_ts[-1])
+                self.total_gen_ts.append(self.total_gen_ts[-1]) #this always should stay the same no matter what
 
     def _update_IS_events(self, infection_IS_event=None, recovery_event=None):
         if infection_IS_event is not None:
@@ -469,7 +489,7 @@ class Simulation:
                 m = 0
         return infection_time_srs_by_gen
 
-    def tabulate_continuous_time(self, time_buckets=100, custom_range=False, custom_t_lim=100, active_gen_info=False):
+    def tabulate_continuous_time(self, time_buckets=100, custom_range=False, custom_t_lim=100, active_gen_info=False, active_gen_sizes=False):
         """
         Compile the results from the simulation as a time series.
 
@@ -486,6 +506,9 @@ class Simulation:
         recover_time_series = np.zeros(len(time_partition))
         active_gen_time_series = np.zeros(len(time_partition))
         total_gen_time_series = np.zeros(len(time_partition))
+        active_gen_sizes_ts = np.zeros((len(time_partition), 100))
+        if active_gen_sizes:
+            self._gens_size_over_time = np.array(self._gens_size_over_time)
         ts_length = len(self._time_series)
 
         idx_floor = 0
@@ -496,6 +519,8 @@ class Simulation:
                 real_time_recovered = self._real_time_srs_rec[t]
                 real_time_active_gens = self.active_gen_ts[t]
                 real_time_total_gens = self.total_gen_ts[t]
+                if active_gen_sizes:
+                    real_time_gen_sizes = self._gens_size_over_time[t]
                 found_soonest = False
                 idx = idx_floor
                 while not found_soonest:
@@ -506,14 +531,20 @@ class Simulation:
                         recover_time_series[idx:] = real_time_recovered
                         active_gen_time_series[idx:] = real_time_active_gens
                         total_gen_time_series[idx:] = real_time_total_gens
+                        if active_gen_sizes:
+                            active_gen_sizes_ts[idx:] = real_time_gen_sizes #TODO make sure this is working properly
                         found_soonest = True
                     idx += 1
 
         except IndexError:
             print(f'Must increase parameter custom_t_lim higher than {custom_t_lim} or full results will not be returned')
 
-        if active_gen_info:
-            return time_partition, infection_time_series, recover_time_series, active_gen_time_series, total_gen_time_series
+        if active_gen_info and active_gen_sizes:
+            return time_partition, infection_time_series, recover_time_series, \
+                   active_gen_time_series, total_gen_time_series, active_gen_sizes_ts
+        elif active_gen_info:
+            return time_partition, infection_time_series, recover_time_series, \
+                   active_gen_time_series, total_gen_time_series
         return time_partition, infection_time_series, recover_time_series
 
     def tabulate_continuous_time_with_groups(self, time_buckets=100, custom_range=False, custom_t_lim=100):
