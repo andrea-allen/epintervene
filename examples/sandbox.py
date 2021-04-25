@@ -7,6 +7,7 @@ from epintervene.simobjects import simulation
 from epintervene.simobjects import extended_simulation
 import math
 import time
+import random
 
 def visualize_network():
     nb = network.NetworkBuilder
@@ -33,13 +34,16 @@ def chain_network():
     chain_net = chain_degree_dist(10)
     plaw = power_law_degree_distrb(400)
     start_time=time.time()
+    total_counting_time = 0
+    total_sim_time = 0
     degree_distrb = binomial_degree_distb(400, 2.5)
-    # degree_distrb = powerlaw
+    # degree_distrb = plaw
     print(f'net work time {time.time()-start_time}')
 
 
     # Creating a network from a power law degree distribution
     G, pos = nb.from_degree_distribution(10000, degree_distrb)
+    # G, pos = nb.from_degree_distribution(10000, plaw)
     # G = nx.generators.balanced_tree(2, 5)
     # G = nx.Graph()
     # G.add_nodes_from(list(np.arange(40)))
@@ -82,21 +86,21 @@ def chain_network():
 
     A = np.array(nx.adjacency_matrix(G).todense())
 
-    dd_g = np.array(nx.degree_histogram(G)) / (
-        sum(nx.degree_histogram(G)))
-    avg = 0
-    for k in range(len(dd_g)):
-        avg += k * dd_g[k]
-
-    Gcc = sorted(nx.connected_components(G), key=len, reverse=True)
-    G0 = G.subgraph(Gcc[0])
-    dd_gcc = np.array(nx.degree_histogram(G0)) / (
-        sum(nx.degree_histogram(G0)))
-    Gcc_avg = 0
-    for k in range(len(dd_gcc)):
-        Gcc_avg += k * dd_gcc[k]
-    dd_g1 = g1_of(dd_gcc)
-    Gcc_avg_excess = z1_of(dd_g1)
+    # dd_g = np.array(nx.degree_histogram(G)) / (
+    #     sum(nx.degree_histogram(G)))
+    # avg = 0
+    # for k in range(len(dd_g)):
+    #     avg += k * dd_g[k]
+    #
+    # Gcc = sorted(nx.connected_components(G), key=len, reverse=True)
+    # G0 = G.subgraph(Gcc[0])
+    # dd_gcc = np.array(nx.degree_histogram(G0)) / (
+    #     sum(nx.degree_histogram(G0)))
+    # Gcc_avg = 0
+    # for k in range(len(dd_gcc)):
+    #     Gcc_avg += k * dd_gcc[k]
+    # dd_g1 = g1_of(dd_gcc)
+    # Gcc_avg_excess = z1_of(dd_g1)
 
 
     start_time = time.time()
@@ -106,42 +110,66 @@ def chain_network():
     averaging_total = None
     averaging_count = 0
     gen_results_average = np.zeros(100)
-    for i in range(30):
-        print(f'sim number{i}')
+    full_ts = None
+    full_ts_infc = None
+    full_ts_rec = None
+    generational_distribution = np.zeros((100, len(A)))
+
+    num_sims = 100
+
+    for i in range(num_sims):
+        if i % 30 == 0:
+            print(f'sim number{i}')
         sim = simulation.Simulation(adj_matrix=A, adj_list=adjlist, N=len(A))
         sim.set_uniform_beta(0.004)
         sim.set_uniform_gamma(0.001)
 
-        time_s = time.time()
-        sim.run_sim(wait_for_recovery=False, uniform_rate=True, viz_pos=pos, viz_graph=G, visualize=False, p_zero=None)
-        actual_run_time = time.time()-time_s
-        print(f'sim time was {actual_run_time}')
+        # time_s = time.time()
+        sim.run_sim(wait_for_recovery=False, uniform_rate=True, viz_pos=pos, viz_graph=G, visualize=False, p_zero=None, kill_by=16)
+        # actual_run_time = time.time()-time_s
+        # total_sim_time += time.time() - time_s
+        # print(f'sim time was {actual_run_time}')
         # current_counter = sim.infectious_degree_counter
         # if len(current_counter)>0:
         #     print(f'len of counter {len(current_counter)}')
         #     if len(current_counter)>100:
         #         total_infectious_degree_counter += sum(sim.infectious_degree_counter)/(len(sim.infectious_degree_counter))
         #         number_took_off += 1
-        time_s = time.time()
-        ts, infect_ts, recover_ts, active_gen_ts, total_gen_ts = sim.tabulate_continuous_time(1000, custom_range=True, custom_t_lim=5000, active_gen_info=True)
-        ts, infect_ts, recover_ts = sim.tabulate_continuous_time(1000, custom_range=True, custom_t_lim=5000)
-        print(f'result counting time was {time.time()-time_s}')
+        # time_s = time.time()
+        ts, infect_ts, recover_ts, active_gen_ts, total_gen_ts = sim.tabulate_continuous_time(1000, custom_range=True, custom_t_lim=500000, active_gen_info=True)
+        # ts, infect_ts, recover_ts = sim.tabulate_continuous_time(1000, custom_range=True, custom_t_lim=5000)
+        if full_ts is None:
+            full_ts = ts
+            full_ts_infc = infect_ts
+            full_ts_rec = recover_ts
+        else:
+            full_ts_infc += infect_ts
+            full_ts_rec += recover_ts
+        # print(f'result counting time was {time.time()-time_s}')
+        # total_counting_time += time.time()-time_s
         # plt.plot(ts, infect_ts, color='red')
         # plt.plot(ts, recover_ts, color='green')
         # plt.show()
-        time_s = time.time()
+        # time_s = time.time()
         gen_results = sim.tabulate_generation_results(100)
-        print(f'generation counting time was {time.time()-time_s}')
+        # print(f'generation counting time was {time.time()-time_s}')
         if averaging_active is None:
             averaging_active = np.array(active_gen_ts)
             averaging_total = np.array(total_gen_ts)
         else:
-            print(np.array(total_gen_ts)[-1])
+            # print(np.array(total_gen_ts)[-1])
             if total_gen_ts[-1] > 2:
                 averaging_active += np.array(active_gen_ts)
                 averaging_total += np.array(total_gen_ts)
                 averaging_count += 1
         gen_results_average += gen_results
+        for gen in range(len(gen_results)):
+            num_total_infctd = int(gen_results[gen])
+            try:
+                generational_distribution[gen][num_total_infctd] += 1
+            except IndexError:
+                print('Index error for g: ', gen, ', gen_s: ', num_total_infctd)
+                continue
         # plt.figure(1, frameon=True)
         # plt.plot(ts, infect_ts, color='blue', lw=2, label='Infected')
         # # plt.plot(ts, recover_ts, color='green', label='Recovered')
@@ -167,32 +195,78 @@ def chain_network():
     plt.plot(ts, averaging_total / averaging_count, label='total gens')
     plt.legend(loc='upper left')
     plt.show()
-    plt.plot(gen_results_average/30)
+    plt.title('gen results')
+    plt.scatter(np.arange(100), gen_results_average/num_sims)
     plt.show()
-    print(f'total infectious degree avg {total_infectious_degree_counter/number_took_off}')
+
+    plt.plot(full_ts, full_ts_infc/num_sims)
+    plt.plot(full_ts, full_ts_rec/num_sims)
+    plt.show()
+    # averaging results:
+    for gen in range(100):
+        gen_time_series = generational_distribution[gen]
+        gen_time_series = gen_time_series / num_sims
+        generational_distribution[gen] = gen_time_series
+    plt.title('Generation distributions')
+    plt.title('Generation distributions')
+    plt.plot(np.arange(390), generational_distribution[3][2:392])
+    plt.plot(np.arange(390), generational_distribution[6][2:392])
+    plt.plot(np.arange(390), generational_distribution[10][2:392])
+    plt.plot(np.arange(390), generational_distribution[15][2:392])
+    plt.semilogy()
+    plt.ylim(.00005, .1)
+    plt.show()
+    # print(f'total infectious degree avg {total_infectious_degree_counter/number_took_off}')
     print(f'Total time for all sim took {time.time()-start_time}')
+    print(f'total sim time {total_sim_time}')
+    print(f'total counting time {total_counting_time}')
 
 
-
-
-
-def optimizing():
+def sim_testing():
     nb = network.NetworkBuilder
-    powerlaw = power_law_degree_distrb(mu=100)
+    powerlaw = power_law_degree_distrb()
     start_time=time.time()
-    degree_distrb = binomial_degree_distb(400, 6)
+    degree_distrb = binomial_degree_distb(400, 3)
     # degree_distrb = powerlaw
     print(f'net work time {time.time()-start_time}')
 
 
     # Creating a network from a power law degree distribution
-    G, pos = nb.from_degree_distribution(1000, degree_distrb)
+    G, pos = nb.from_degree_distribution(30, degree_distrb)
+    adjlist = nb.create_adjacency_list(G)
+
+    for i in range(10):
+        print(i)
+        sim = simulation.Simulation(adj_matrix=None, adj_list=adjlist, N=len(G.nodes()))
+        # sim = extended_simulation.RandomRolloutSimulation(adjmatrix=A, adjlist=adjlist, N=len(A))
+        # sim.set_adjlist(adjlist)
+        # Beta = np.full((len(A), len(A)), 0.0015)
+        # Gamma = np.full(len(A), 0.001)
+        # sim.add_infection_event_rates(Beta)
+        # sim.add_recover_event_rates(Gamma)
+        sim.set_uniform_beta(0.004)
+        sim.set_uniform_gamma(0.001)
+        sim.run_sim(wait_for_recovery=False, uniform_rate=True, kill_by=None)
+
+
+def optimizing():
+    nb = network.NetworkBuilder
+    powerlaw = power_law_degree_distrb()
+    start_time=time.time()
+    degree_distrb = binomial_degree_distb(400, 2.5)
+    degree_distrb = powerlaw
+    print(f'net work time {time.time()-start_time}')
+
+
+    # Creating a network from a power law degree distribution
+    G, pos = nb.from_degree_distribution(10000, degree_distrb)
     adjlist = nb.create_adjacency_list(G)
 
     A = np.array(nx.adjacency_matrix(G).todense())
-    start_time = time.time()
-    for i in range(100):
-        print(i)
+    start_ensemble_time = time.time()
+    total_total_time = 0
+    for i in range(1000):
+        # print(i)
         sim = simulation.Simulation(adj_matrix=A, adj_list=adjlist, N=len(A))
         # sim = extended_simulation.RandomRolloutSimulation(adjmatrix=A, adjlist=adjlist, N=len(A))
         # sim.set_adjlist(adjlist)
@@ -200,14 +274,25 @@ def optimizing():
         # Gamma = np.full(len(A), 0.001)
         # sim.add_infection_event_rates(Beta)
         # sim.add_recover_event_rates(Gamma)
-        sim.set_uniform_beta(0.0015)
+        sim.set_uniform_beta(0.004)
         sim.set_uniform_gamma(0.001)
         # sim.configure_intervention(intervention_gen_list=[5,6,7], beta_redux_list=[0, 0, 0], proportion_reduced_list=[0.01,0.05,0.10])
         # 46 seconds for a major sim with 10000 nodes, 1.5 mean degree, and beta of 0.9
         # commenting out the update_IS_events method, sim takes same time, seemed to have no effect
         # sim.run_sim(wait_for_recovery=True)
-        sim.run_sim(wait_for_recovery=False, uniform_rate=True)
-    print(f'Total time for all sim took {time.time()-start_time}')
+        start_time = time.time()
+        sim.run_sim(wait_for_recovery=False, uniform_rate=True, kill_by=16)
+        ## TODO how much is because of that random exponential vs the uniforms
+        total_total_time += time.time()-start_time
+        # print(sum([len(sim.get_gen_collection()[key]) for key in list(sim.get_gen_collection().keys())]))
+        # if max(sim._real_time_srs_infc) > 100:
+        #     plt.plot(sim._time_series[1:], sim._real_time_srs_infc)
+        #     plt.plot(sim._time_series[1:], sim._real_time_srs_rec)
+        #     plt.plot(sim._time_series[1:], np.array(sim._real_time_srs_infc)+np.array(sim._real_time_srs_rec))
+        #     plt.show()
+        # TODO: turns out 2.5 seconds (35 percent) is taken by not single step. What's it coming from?
+        # TODO 44 percent of time from getting the length of the events in the dictionary
+    print(f'Total time for all sim start to end took {time.time()-start_ensemble_time}')
 
 
     ts, infect_ts, recover_ts = sim.tabulate_continuous_time(1000)
@@ -664,11 +749,46 @@ def g1_of(g_0):
         g_1[k] = (k + 1) * g_0[k + 1]
     return g_1 / (z1_of(g_0))
 
+def speed_random():
+    start_time = time.time()
+    for i in range(1000000):
+        number = np.random.randint(0, 100)
+    numpy_time = time.time() - start_time
+    start_time = time.time()
+    for i in range(1000000):
+        random_num = random.randint(0, 100)
+    randint_time = time.time() - start_time
+    start_time = time.time()
+    for i in range(1000000):
+        random_uni = random.uniform(0, 100)
+    rand_uni_time = time.time()-start_time
+    start_time = time.time()
+    for i in range(1000000):
+        random_uni = random.uniform(0, 100)
+        random_rounded = int(random_uni)
+    rand_uni_round_time = time.time()-start_time
+    print(f'Numpy random time {numpy_time}')
+    print(f'Randint random time {randint_time}')
+    print(f'Random Unfirom time {rand_uni_time}')
+    print(f'Random Unfirom Rounded time {rand_uni_round_time}')
+    start_time = time.time()
+    timing_uni = 0
+    for i in range(1000000):
+        t_s = time.time()
+        random_uni = random.uniform(0, 100)
+        timing_uni += time.time()-t_s
+    time_with_timing = time.time()-start_time
+    print(f'Timing Unfirom time {time_with_timing}')
+    print(f'Timing time {timing_uni}')
+
+
 if __name__=='__main__':
     # visualize_network()
     # uniform_reduction()
     chain_network()
     # optimizing()
+    # sim_testing()
+    # speed_random()
     # membership()
     # random_vaccination()
     # random_rollout_vaccination()

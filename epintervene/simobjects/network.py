@@ -153,12 +153,16 @@ class NetworkBuilder:
             source = row[0]
             if len(row) > 1:
                 for target in row[1:]:
+                    if sum([1 for entry in row if entry==target]) > 1:
+                        row.remove(target)
                     try:
                         if source not in adjlist[target]:
                             adjlist[target].append(source)
                     except IndexError:
                         print(source, target)
                         adjlist.append([source])
+                # unique_neighbors = list(np.unique(row[1:]))
+                # adjlist[-1][1:] = unique_neighbors
         total_entry_count = 0
         for i in range(len_adj):
             if len(adjlist[i]) > 1:
