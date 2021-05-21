@@ -31,7 +31,7 @@ class Simulation:
     An SIR simulation object storing network information, rate parameters, and simulation run results.
 
     """
-    def __init__(self, N, adj_matrix=None, adj_list=None, max_unitless_sim_time=1000000, membership_groups=None, node_memberships=None):
+    def __init__(self, N, adj_list=None, max_unitless_sim_time=1000000, membership_groups=None, node_memberships=None):
         """
         Create a single instance of an SIR Simulation object.
 
@@ -42,13 +42,10 @@ class Simulation:
         """
         self.total_sim_time = max_unitless_sim_time
         self._current_sim_time = 0
-        self._A = adj_matrix
         self._adjlist = adj_list
         self._N = N
         self._uniform_beta = None
         self._uniform_gamma = None
-        self._Beta = None
-        self._Gamma = None
         self._potential_IS_events = EventList(eventtype.EventType.INFECTEDSUSCEPTIBLE, [])
         self._out_degree_IS_events = {}
         self._out_degree_IS_lengths = {}
@@ -131,20 +128,18 @@ class Simulation:
         self._uniform_gamma = gamma
 
     def _initialize_patient_zero(self, label=None):
-        if self._N==0:
-            self._N = len(self._A[0])
         if label is None:
             p_zero_idx = random.randint(0, self._N - 1)
         elif label is not None:
             p_zero_idx = label
-        if self._Gamma is None and self._uniform_gamma is None:
-            raise AttributeError(self._Gamma,
-                                 'Please provide a recovery vector Gamma to the simulation via the '
-                                 'add_recover_event_rates method, or a uniform gamma with the set_uniform_gamma method')
-        if self._Beta is None and self._uniform_beta is None:
-            raise AttributeError(self._Beta,
-                                 'Please provide an infection rate matrix Beta to the simulation via the '
-                                 'add_infection_event_rates method, or set a uniform beta with the set_uniform_beta method')
+        if self._uniform_gamma is None:
+            raise AttributeError(self._uniform_gamma,
+                                 'Please provide a recovery rate gamma to the simulation via the constructor or the '
+                                 'set_uniform_gamma method')
+        if self._uniform_beta is None:
+            raise AttributeError(self._uniform_beta,
+                                 'Please provide an infection rate beta to the simulation via the constructor or the '
+                                 'set_uniform_beta method')
         if self.use_uniform_rate:
             patient_zero = network.Node(p_zero_idx, 0, nodestate.NodeState.INFECTED, event_rate=self._uniform_gamma)
         else:

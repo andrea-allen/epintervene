@@ -127,7 +127,7 @@ def chain_network():
 
         # time_s = time.time()
         sim.run_sim(wait_for_recovery=False, uniform_rate=True, viz_pos=pos, viz_graph=G, visualize=False, p_zero=None,
-                    kill_by=16, record_active_gen_sizes=True)
+                    kill_by=16, record_active_gen_sizes=False)
         # actual_run_time = time.time()-time_s
         # total_sim_time += time.time() - time_s
         # print(f'sim time was {actual_run_time}')
@@ -138,8 +138,8 @@ def chain_network():
         #         total_infectious_degree_counter += sum(sim.infectious_degree_counter)/(len(sim.infectious_degree_counter))
         #         number_took_off += 1
         # time_s = time.time()
-        # ts, infect_ts, recover_ts, active_gen_ts, total_gen_ts = sim.tabulate_continuous_time(1000, custom_range=True, custom_t_lim=5000, active_gen_info=True)
-        ts, infect_ts, recover_ts, active_gen_ts, total_gen_ts, active_sizes_ts = sim.tabulate_continuous_time(1000, custom_range=True, custom_t_lim=5000, active_gen_info=True, active_gen_sizes=True)
+        ts, infect_ts, recover_ts, active_gen_ts, total_gen_ts = sim.tabulate_continuous_time(1000, custom_range=True, custom_t_lim=5000, active_gen_info=True)
+        # ts, infect_ts, recover_ts, active_gen_ts, total_gen_ts, active_sizes_ts = sim.tabulate_continuous_time(1000, custom_range=True, custom_t_lim=5000, active_gen_info=True, active_gen_sizes=True)
         # ts, infect_ts, recover_ts = sim.tabulate_continuous_time(1000, custom_range=True, custom_t_lim=5000)
         if full_ts is None:
             full_ts = ts
@@ -159,13 +159,13 @@ def chain_network():
         if averaging_active is None:
             averaging_active = np.array(active_gen_ts)
             averaging_total = np.array(total_gen_ts)
-            average_active_sizes = active_sizes_ts
+            # average_active_sizes = active_sizes_ts
         else:
             # print(np.array(total_gen_ts)[-1])
             if total_gen_ts[-1] > 2:
                 averaging_active += np.array(active_gen_ts)
                 averaging_total += np.array(total_gen_ts)
-                average_active_sizes += active_sizes_ts
+                # average_active_sizes += active_sizes_ts
                 averaging_count += 1
         gen_results_average += gen_results
         for gen in range(len(gen_results)):
@@ -196,9 +196,9 @@ def chain_network():
         # plt.title('SIR Generational Cumulative Results for Random Intervention Simulation')
         # plt.show()
     # print(active_gen_ts, total_gen_ts)
-    average_active_sizes = average_active_sizes / averaging_count
-    for g in range(1, 12, 3):
-        plt.plot(average_active_sizes.T[g], label=f'generation {g}')
+    # average_active_sizes = average_active_sizes / averaging_count
+    # for g in range(1, 12, 3):
+    #     plt.plot(average_active_sizes.T[g], label=f'generation {g}')
     plt.legend(loc='upper right')
     plt.xlabel('time')
     plt.ylabel('average number active nodes')
@@ -248,7 +248,7 @@ def sim_testing():
     G, pos = nb.from_degree_distribution(30, degree_distrb)
     adjlist = nb.create_adjacency_list(G)
 
-    for i in range(10):
+    for i in range(4):
         print(i)
         sim = simulation.Simulation(adj_matrix=None, adj_list=adjlist, N=len(G.nodes()))
         # sim = extended_simulation.RandomRolloutSimulation(adjmatrix=A, adjlist=adjlist, N=len(A))
@@ -260,6 +260,27 @@ def sim_testing():
         sim.set_uniform_beta(0.004)
         sim.set_uniform_gamma(0.001)
         sim.run_sim(wait_for_recovery=False, uniform_rate=True, kill_by=None)
+        ts, infect_ts, recover_ts = sim.tabulate_continuous_time(1000)
+        plt.figure(1, frameon=True)
+        plt.plot(ts, infect_ts, color='blue', lw=3, label='Infected')
+        # plt.plot(ts, recover_ts, color='green', label='Recovered')
+        plt.xlabel('Time', fontsize=18)
+        plt.ylabel('Infections', fontsize=18)
+        # plt.ylabel('Number of nodes in class')
+        # plt.legend(loc='upper left')
+        plt.xticks([])
+        plt.yticks([])
+        # plt.title('SIR Continuous Time Results for Random Intervention Simulation')
+        # plt.show()
+
+        ts_by_gen = sim.tabulate_generation_results(20)
+        plt.figure(2)
+        plt.plot(np.arange(len(ts_by_gen)), ts_by_gen)
+        plt.scatter(np.arange(len(ts_by_gen)), ts_by_gen)
+        plt.xlabel('Generation number')
+        plt.ylabel('Cumulative infections by generation')
+        plt.title('SIR Generational Cumulative Results for Random Intervention Simulation')
+        plt.show()
 
 
 def optimizing():
@@ -824,11 +845,11 @@ def expovariate_versions():
 if __name__=='__main__':
     # visualize_network()
     # uniform_reduction()
-    chain_network()
+    # chain_network()
     # optimizing()
-    # sim_testing()
+    sim_testing()
     # speed_random()
-    expovariate_versions()
+    # expovariate_versions()
     # membership()
     # random_vaccination()
     # random_rollout_vaccination()
