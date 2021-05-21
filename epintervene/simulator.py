@@ -1,5 +1,6 @@
 import numpy as np
 
+#TODO: can remove this, and remove it from being included in the package
 
 def run(fname):
     print('Running EpIntervene')

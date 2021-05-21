@@ -2,6 +2,7 @@ import unittest
 from epintervene.simobjects import network
 from epintervene.simobjects import nodestate
 
+#TODO: needs to be edited
 
 class TestNetwork(unittest.TestCase):
     def test_node(self):

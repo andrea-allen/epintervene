@@ -4,6 +4,7 @@ from epintervene.simobjects import simulation
 import networkx as nx
 import matplotlib.pyplot as plt
 
+#TODO needs to be edited
 
 class TestSimulation(unittest.TestCase):
     def test_sim_creates_patientzero(self):

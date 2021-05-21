@@ -250,7 +250,7 @@ def sim_testing():
 
     for i in range(4):
         print(i)
-        sim = simulation.Simulation(adj_matrix=None, adj_list=adjlist, N=len(G.nodes()))
+        sim = simulation.Simulation(adj_list=adjlist, N=len(G.nodes()))
         # sim = extended_simulation.RandomRolloutSimulation(adjmatrix=A, adjlist=adjlist, N=len(A))
         # sim.set_adjlist(adjlist)
         # Beta = np.full((len(A), len(A)), 0.0015)
@@ -503,16 +503,14 @@ def membership():
         node_membership_vector.append('bird')
     for k in range(elephant_population):
         node_membership_vector.append('elephant')
-    sim = simulation.Simulation(N=len(A), adj_matrix=A, adj_list=adjlist, membership_groups=['tiger', 'bird', 'elephant'], node_memberships=node_membership_vector)
-    Beta = np.full((len(A), len(A)), 0.5)
-    Gamma = np.full(len(A), 0.9)
-    sim.add_infection_event_rates(Beta)
-    sim.add_recover_event_rates(Gamma)
+    sim = simulation.Simulation(N=len(A), adj_list=adjlist, membership_groups=['tiger', 'bird', 'elephant'],
+                                node_memberships=node_membership_vector)
     sim.set_uniform_beta(0.5)
-    sim.set_uniform_gamma(0.9)
+    sim.set_uniform_gamma(0.1)
     sim.run_sim(with_memberships=True, wait_for_recovery=True, uniform_rate=True)
 
-    ts, membership_ts_infc = sim.tabulate_continuous_time_with_groups(time_buckets=1000, custom_range=True, custom_t_lim=15)
+    ts, membership_ts_infc = sim.tabulate_continuous_time_with_groups(time_buckets=1000, custom_range=True,
+                                                                      custom_t_lim=15)
     plt.figure(0)
     for group in membership_ts_infc.keys():
         plt.plot(ts, membership_ts_infc[group], label=group)
@@ -847,7 +845,8 @@ if __name__=='__main__':
     # uniform_reduction()
     # chain_network()
     # optimizing()
-    sim_testing()
+    # sim_testing()
+    membership()
     # speed_random()
     # expovariate_versions()
     # membership()
