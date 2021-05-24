@@ -47,11 +47,11 @@ class Simulation:
         self._N = N
         self._uniform_beta = None
         self._uniform_gamma = None
-        self._potential_IS_events = EventList(eventtype.EventType.INFECTEDSUSCEPTIBLE, [])
+        # self._potential_IS_events = EventList(eventtype.EventType.INFECTEDSUSCEPTIBLE, [])
         self._out_degree_IS_events = {}
         self._out_degree_IS_lengths = {}
         self._in_degree_IS_events = {}
-        self._potential_recovery_events = EventList(eventtype.EventType.RECOVER, [])
+        # self._potential_recovery_events = EventList(eventtype.EventType.RECOVER, [])
         self._recovered_nodes = []
         self._recovery_events = {}
         self._recovery_events_keys = []
@@ -87,12 +87,6 @@ class Simulation:
         # In order to compute things to most efficiently, need to have the leading row of active gens counts and then just append or remove
         #  from that count in order not to have to compute the size at every generation
         self._current_active_gen_sizes = np.zeros(100)
-
-    def get_Beta(self):
-        return self._Beta
-
-    def get_Gamma(self):
-        return self._Gamma
 
     def get_gen_collection(self):
         return self._gen_collection
@@ -153,7 +147,7 @@ class Simulation:
         self.active_gen_ts.append(1)
         self.total_gen_ts.append(1)
         self._current_active_gen_sizes[0] = 1
-        self._potential_recovery_events.add_to_event_list(patient_zero)
+        # self._potential_recovery_events.add_to_event_list(patient_zero)
         self._recovery_events[p_zero_idx] = patient_zero
         self._recovery_events_keys.append(p_zero_idx)
         self._current_number_recovery_events = 1
@@ -230,7 +224,7 @@ class Simulation:
                 self._recovery_events_keys.append(infection_event.get_right_node().get_label())
                 self._current_number_recovery_events += 1
                 self._max_num_recovery_events += 1
-                self._potential_recovery_events.add_to_event_list(infection_event.get_right_node())
+                # self._potential_recovery_events.add_to_event_list(infection_event.get_right_node())
 
                 try:  # If they are a member of an existing generation, bookkeeping will happen here:
                     self._gen_collection[infection_event.get_right_node().get_generation()].append(
@@ -325,7 +319,7 @@ class Simulation:
         if adjlist_length > 1:
             infected_label = infected_node.get_label()
             length = adjlist_length
-            self.infectious_degree_counter.append(
+            self.infectious_degree_counter.append( #not doing this anymore
                 length - 2)  # subtract 2, 1 for itself (1st list entry) and 1 for the edge it got infected by
             for n in range(1, length):
                 j = infection_adjlist[n]
@@ -355,6 +349,7 @@ class Simulation:
                         self._in_degree_IS_events[neighbor_node.get_label()] = [edge_ij]
                     self._current_number_IS_events += 1
                     # Dict of Dicts which holds the "key" to the flat list
+                    #TODO need to do this for SEIR ES events too for speed (done now)
                     self._potential_IS_events_flat.append(edge_ij)
                     # the length of the above list should hopefully be the same as current number of events
                     try:
@@ -415,14 +410,12 @@ class Simulation:
 
     def draw_event_class(self):
         partition_end_markers = {}
-        num_of_recovery_events = self._max_num_recovery_events
+        num_of_recovery_events = self._current_number_recovery_events #todo make sure this works instead of max...
         num_of_infection_possible_events = self._current_number_IS_events
         partition_end_markers[0] = num_of_infection_possible_events * self._uniform_beta
-        partition_end_markers[
-            1] = num_of_infection_possible_events * self._uniform_beta + num_of_recovery_events * self._uniform_gamma
+        partition_end_markers[1] = num_of_infection_possible_events * self._uniform_beta + num_of_recovery_events * self._uniform_gamma
         random_draw = random.uniform(0, partition_end_markers[1])
-        sum_of_rates = (
-                self._uniform_beta * num_of_infection_possible_events + self._uniform_gamma * num_of_recovery_events)
+        sum_of_rates = (self._uniform_beta * num_of_infection_possible_events + self._uniform_gamma * num_of_recovery_events)
         tau = random.expovariate(max(sum_of_rates, .0000001))
         if random_draw < partition_end_markers[0]:
             found_next_event = None
@@ -434,7 +427,7 @@ class Simulation:
             found_next_event = None
             while found_next_event is None:
                 try:
-                    random_idx = random.randint(0, num_of_recovery_events)
+                    random_idx = random.randint(0, self._max_num_recovery_events)
                 except ValueError:
                     print('Value error')
                     print(f'number recovery nodes {print(len(self._recovery_events))}')
@@ -607,18 +600,25 @@ class SimulationSEIR(Simulation):
         """
         super().__init__(adj_list=adjlist, N=N, max_unitless_sim_time=max_unitless_sim_time,
                          membership_groups=membership_groups, node_memberships=node_memberships)
-        self._potential_ES_events = EventList(eventtype.EventType.EXPOSEDSUSCEPTIBLE, [])
-        self._potential_EI_events = EventList(eventtype.EventType.EXPOSEDINFECTED, [])
+        # self._potential_ES_events = EventList(eventtype.EventType.EXPOSEDSUSCEPTIBLE, [])
+        # self._potential_EI_events = EventList(eventtype.EventType.EXPOSEDINFECTED, [])
         self._current_exposed = []
+        self._current_number_ES_events = 0
+        self._current_number_EI_events = 0
+        self._potential_ES_events_flat = []
+        self._edge_keys_es = {}
+        self._next_key_es = 0
         self._real_time_srs_exp = []
-        self._Beta_ExposedSusceptible = None
-        self._Theta_ExposedInfected = None
         self._cont_time_exposed_dict = {}
         self._membership_time_series_exp = {0: []}
         self._in_degree_ES_events = {}
         self._out_degree_ES_events = {}
+        self._out_degree_ES_lengths = {}
         self._uniform_gamma_ei = None
         self._uniform_beta_es = None
+        self._exposed_to_infected_events = {}
+        self._exposed_to_infected_events_keys = []
+        self._max_number_EI_events = 0
         # TODO deal with generations of exposed emergence as well
         # should probably also determine in the model if there's completely asymptomatic cases as well (E->R events)
 
@@ -628,7 +628,6 @@ class SimulationSEIR(Simulation):
     def set_uniform_gamma_ei(self, gamma):
         self._uniform_gamma_ei = gamma
 
-    # TODO number recovered is going over 100%, ugh.
     def run_sim(self, with_memberships=False, uniform_rate=True, wait_for_recovery=False, visualize=False,
                 viz_graph=None, viz_pos=None, p_zero=None, kill_by=None, record_active_gen_sizes=False):
         """
@@ -643,22 +642,27 @@ class SimulationSEIR(Simulation):
                                       self._uniform_gamma is None or self._uniform_beta is None):
             raise Exception('Since uniform_rate=True, must set all transmission and recovery parameter values via '
                             'set_uniform_{param} method}')
-        if with_memberships: self.track_memberships = True
+        if with_memberships:
+            self.track_memberships = True
         if self.track_memberships:
             self._init_membership_state_time_series()
-        self._initialize_patient_zero()
+        self._initialize_patient_zero(label=p_zero)
+        self._gens_size_over_time = []
+        self._gens_size_over_time.append(list(self._current_active_gen_sizes))
         while self._current_sim_time < self.total_sim_time:
             # Run one step
             self._single_step(uniform_rate=uniform_rate, visualize=visualize, viz_graph=viz_graph, viz_pos=viz_pos,
                               record_active_gen_sizes=record_active_gen_sizes)
 
             self._total_num_timesteps += 1
-            if (len(self._potential_IS_events._event_list) == 0) \
-                    and (len(self._potential_ES_events._event_list) == 0) \
-                    and (len(self._potential_EI_events._event_list) == 0):
+            if self._current_number_IS_events == 0 and self._current_number_ES_events == 0:
                 if not wait_for_recovery:
                     break
-                elif len(self._current_infected_nodes) == 0:
+                elif len(self._recovery_events) == 0:
+                    break
+            if kill_by is not None and self._highest_gen >= kill_by:
+                should_quit = self._check_active_gens(kill_by)
+                if should_quit:
                     break
 
     #TODO in progress
@@ -667,92 +671,148 @@ class SimulationSEIR(Simulation):
         self.use_uniform_rate = uniform_rate
         if visualize:
             self._visualize_network(viz_graph, viz_pos)
-        event_catolog = [self._potential_IS_events, self._potential_recovery_events, self._potential_ES_events,
-                         self._potential_EI_events]
-        tau = draw_tau(event_catolog, uniform_rate=self.use_uniform_rate)
-
+        event_class, next_event, tau = self.draw_event_class() #TODO come back to this!!
+        self._current_sim_time += tau
+        print(f'{self._current_sim_time} out of {self.total_sim_time}')
         self._time_series.append(self._time_series[-1] + tau)
-        self._real_time_srs_infc.append(len(self._current_infected_nodes))
+        self._real_time_srs_infc.append(
+            self._current_number_recovery_events)
+        self._real_time_srs_exp.append(self._current_number_EI_events) #todo check this is right
         self._real_time_srs_rec.append(len(self._recovered_nodes))
-        self._real_time_srs_exp.append(len(self._current_exposed))
+        if record_active_gen_sizes:
+            self._gens_size_over_time.append(list(self._current_active_gen_sizes))
+        # TODO the above should replace:
+        # event_catolog = [self._potential_IS_events, self._potential_recovery_events, self._potential_ES_events,
+        #                  self._potential_EI_events]
+        # tau = draw_tau(event_catolog, uniform_rate=self.use_uniform_rate)
+
+        # self._real_time_srs_infc.append(len(self._current_infected_nodes))
+        # self._real_time_srs_rec.append(len(self._recovered_nodes))
+        # self._real_time_srs_exp.append(len(self._current_exposed))
         if self.track_memberships:
             self._record_membership_states()
 
-        event_class = draw_event_class(event_catolog,
-                                       uniform_rate=self.use_uniform_rate)  # This is returning a whole list of events
+        # event_class = draw_event_class(event_catolog,
+        #                                uniform_rate=self.use_uniform_rate)  # This is returning a whole list of events
         if event_class is not None:
-            next_event = draw_event(event_class, self.use_uniform_rate)
-            if event_class._event_type == eventtype.EventType.INFECTEDSUSCEPTIBLE:
+            # next_event = draw_event(event_class, self.use_uniform_rate)
+            # if event_class._event_type == eventtype.EventType.INFECTEDSUSCEPTIBLE:
+            if event_class == eventtype.EventType.INFECTEDSUSCEPTIBLE:
                 infection_event = next_event
                 infection_event.expose()
-                self._potential_IS_events.remove_from_event_list(infection_event)
-                self._current_exposed.append(infection_event.get_right_node())
-                if self.use_uniform_rate:
-                    infection_event.get_right_node().set_event_rate(
-                        self._uniform_gamma_ei)
-                else:
-                    infection_event.get_right_node().set_event_rate(
-                        self._Theta_ExposedInfected[infection_event.get_right_node().get_label()])
-                self._potential_EI_events.add_to_event_list(infection_event.get_right_node())
-                try:
+                #self._ need a self._ei_events thing like self._recovery_events
+                self._exposed_to_infected_events[infection_event.get_right_node().get_label()] = infection_event.get_right_node()
+                self._exposed_to_infected_events_keys.append(infection_event.get_right_node().get_label())
+                self._current_number_EI_events += 1
+                self._max_number_EI_events += 1
+                # self._potential_IS_events.remove_from_event_list(infection_event)
+                # self._current_exposed.append(infection_event.get_right_node())
+                # if self.use_uniform_rate:
+                #     infection_event.get_right_node().set_event_rate(
+                #         self._uniform_gamma_ei)
+                # else:
+                #     infection_event.get_right_node().set_event_rate(
+                #         self._Theta_ExposedInfected[infection_event.get_right_node().get_label()])
+                # self._potential_EI_events.add_to_event_list(infection_event.get_right_node())
+                try:  # If they are a member of an existing generation, bookkeeping will happen here:
                     self._gen_collection[infection_event.get_right_node().get_generation()].append(
                         infection_event.get_right_node().get_label())
-                except KeyError:  # Need a better way than KeyError to catch a new generation
+                    self._gen_collection_active[infection_event.get_right_node().get_generation()].append(
+                        infection_event.get_right_node().get_label())
+                    self.active_gen_ts.append(self.active_gen_ts[-1])  # Active gens stays the same this round
+                    self.total_gen_ts.append(self.total_gen_ts[-1])  # Total gens stays the same this round
+                    self._current_active_gen_sizes[
+                        infection_event.get_right_node().get_generation()] += 1  # One more active member of the generation
+                except KeyError:  # If they are the first member of a new generation, book keeping happens here
                     self._gen_collection[infection_event.get_right_node().get_generation()] = [
+                        infection_event.get_right_node().get_label()]
+                    self._gen_collection_active[infection_event.get_right_node().get_generation()] = [
                         infection_event.get_right_node().get_label()]
                     self._highest_gen += 1
                     self._generational_emergence[self._highest_gen] = self._current_sim_time
+                    self.active_gen_ts.append(self.active_gen_ts[-1] + 1)  # Active gens increases by one
+                    self.total_gen_ts.append(self.total_gen_ts[-1] + 1)  # Total gens increases by one
+                    self._current_active_gen_sizes[
+                        infection_event.get_right_node().get_generation()] += 1
                 self._update_IS_events(infection_IS_event=infection_event)
                 self._update_ES_events(infection_ES_event=infection_event)
                 self._add_ES_events(infection_event.get_right_node())
-            elif event_class._event_type == eventtype.EventType.EXPOSEDSUSCEPTIBLE:
+            elif event_class == eventtype.EventType.EXPOSEDSUSCEPTIBLE:
                 exposure_event = next_event
                 exposure_event.expose()
-                self._potential_ES_events.remove_from_event_list(exposure_event)
-                self._current_exposed.append(exposure_event.get_right_node())
-                if self.use_uniform_rate:
-                    exposure_event.get_right_node().set_event_rate(
-                        self._uniform_gamma_ei)
-                else:
-                    exposure_event.get_right_node().set_event_rate(
-                        self._Theta_ExposedInfected[exposure_event.get_right_node().get_label()])
-                self._potential_EI_events.add_to_event_list(
-                    exposure_event.get_right_node())
-                try:
+                self._exposed_to_infected_events[exposure_event.get_right_node().get_label()] = exposure_event.get_right_node()
+                self._exposed_to_infected_events_keys.append(exposure_event.get_right_node().get_label())
+                self._current_number_EI_events += 1
+                self._max_number_EI_events += 1
+                # self._potential_ES_events.remove_from_event_list(exposure_event)
+                # self._current_exposed.append(exposure_event.get_right_node())
+                try:  # If they are a member of an existing generation, bookkeeping will happen here:
                     self._gen_collection[exposure_event.get_right_node().get_generation()].append(
                         exposure_event.get_right_node().get_label())
-                except KeyError:  # Need a better way than KeyError to catch a new generation
+                    self._gen_collection_active[exposure_event.get_right_node().get_generation()].append(
+                        exposure_event.get_right_node().get_label())
+                    self.active_gen_ts.append(self.active_gen_ts[-1])  # Active gens stays the same this round
+                    self.total_gen_ts.append(self.total_gen_ts[-1])  # Total gens stays the same this round
+                    self._current_active_gen_sizes[
+                        exposure_event.get_right_node().get_generation()] += 1  # One more active member of the generation
+                except KeyError:  # If they are the first member of a new generation, book keeping happens here
                     self._gen_collection[exposure_event.get_right_node().get_generation()] = [
+                        exposure_event.get_right_node().get_label()]
+                    self._gen_collection_active[exposure_event.get_right_node().get_generation()] = [
                         exposure_event.get_right_node().get_label()]
                     self._highest_gen += 1
                     self._generational_emergence[self._highest_gen] = self._current_sim_time
+                    self.active_gen_ts.append(self.active_gen_ts[-1] + 1)  # Active gens increases by one
+                    self.total_gen_ts.append(self.total_gen_ts[-1] + 1)  # Total gens increases by one
+                    self._current_active_gen_sizes[
+                        exposure_event.get_right_node().get_generation()] += 1
                 self._update_IS_events(infection_IS_event=exposure_event)
                 self._update_ES_events(infection_ES_event=exposure_event)
                 self._add_ES_events(exposure_event.get_right_node())
 
-            elif event_class._event_type == eventtype.EventType.EXPOSEDINFECTED:
+            elif event_class == eventtype.EventType.EXPOSEDINFECTED:
                 exposed_infected_event = next_event
-                self._potential_EI_events.remove_from_event_list(exposed_infected_event)
+                # self._potential_EI_events.remove_from_event_list(exposed_infected_event)
                 exposed_infected_event.infect()
-                if self.use_uniform_rate:
-                    exposed_infected_event.set_event_rate(
-                        self._uniform_gamma)
-                else:
-                    exposed_infected_event.set_event_rate(
-                        self._Gamma[exposed_infected_event.get_label()])
-                self._potential_recovery_events.add_to_event_list(exposed_infected_event)
+                self._current_number_recovery_events += 1
+                self._max_num_recovery_events += 1
+                self._recovery_events[exposed_infected_event.get_label()] = exposed_infected_event
+                self._recovery_events_keys.append(exposed_infected_event.get_label())
+
+                self._exposed_to_infected_events.pop(exposed_infected_event.get_label())
+                self._current_number_EI_events -= 1
+
+                # self._potential_recovery_events.add_to_event_list(exposed_infected_event)
                 self._update_ES_events(exposed_infected_event=exposed_infected_event)
-                self._current_infected_nodes.append(exposed_infected_event)
-                self._current_exposed.remove(exposed_infected_event)
+                # self._current_infected_nodes.append(exposed_infected_event)
+                # self._current_exposed.remove(exposed_infected_event)
                 self._add_IS_events(exposed_infected_event)
 
-            elif event_class._event_type == eventtype.EventType.RECOVER:
+            elif event_class == eventtype.EventType.RECOVER:
                 recovery_event = next_event
-                self._potential_recovery_events.remove_from_event_list(recovery_event)
+                # self._potential_recovery_events.remove_from_event_list(recovery_event)
                 recovery_event.recover()
+                self._recovery_events.pop(recovery_event.get_label())
+                self._current_number_recovery_events -= 1
                 self._update_IS_events(recovery_event=recovery_event)
                 self._recovered_nodes.append(recovery_event)
-                self._current_infected_nodes.remove(recovery_event)
+                self._current_active_gen_sizes[
+                    recovery_event.get_generation()] -= 1  # One less active member of the generation
+                try:
+                    self._gen_collection_active[recovery_event.get_generation()].remove(recovery_event.get_label())
+                except ValueError:
+                    pass
+                if len(self._gen_collection_active[
+                           recovery_event.get_generation()]) == 0:  # If this was the last remaining member of the generation
+                    if self.active_gen_ts[-1] == 0:
+                        self.active_gen_ts.append(
+                            self.active_gen_ts[-1])  # If active generations is already 0, then stays at 0
+                    else:
+                        self.active_gen_ts.append(
+                            self.active_gen_ts[-1] - 1)  # Otherwise, reduces active generations by 1
+                else:
+                    self.active_gen_ts.append(self.active_gen_ts[-1])
+                self.total_gen_ts.append(self.total_gen_ts[-1])  # this always should stay the same no matter what
 
         self._current_sim_time += tau
 
@@ -761,10 +821,15 @@ class SimulationSEIR(Simulation):
             try:
                 in_degree_events = self._in_degree_ES_events[infection_ES_event.get_right_node().get_label()]
                 for event in in_degree_events:
-                    self._potential_ES_events.remove_from_event_list(event)
+                    # self._potential_ES_events.remove_from_event_list(event)
                     left_node_idx = event.get_left_node().get_label()
                     try:
                         self._out_degree_ES_events[left_node_idx].remove(event)
+                        self._out_degree_ES_lengths[left_node_idx] -= 1
+                        self._current_number_ES_events -= 1
+                        flat_key = self._edge_keys_es[event.get_left_node().get_label()][
+                            event.get_right_node().get_label()]
+                        self._potential_ES_events_flat[flat_key] = None
                     except ValueError:
                         pass
                 self._in_degree_ES_events[infection_ES_event.get_right_node().get_label()] = []
@@ -774,23 +839,30 @@ class SimulationSEIR(Simulation):
             try:
                 out_degree_events = self._out_degree_ES_events[exposed_infected_event.get_label()]
                 for event in out_degree_events:
-                    self._potential_ES_events.remove_from_event_list(event)
+                    flat_key = self._edge_keys_es[event.get_left_node().get_label()][event.get_right_node().get_label()]
+                    try:
+                        self._potential_ES_events_flat[flat_key] = None
+                    except:
+                        print(flat_key)
                 self._out_degree_ES_events[exposed_infected_event.get_label()] = []
+                self._out_degree_ES_lengths[exposed_infected_event.get_label()] = 0
+                self._current_number_ES_events -= len(out_degree_events)
             except KeyError:
                 pass
             try:
-                in_degree_events = self._in_degree_ES_events[exposed_infected_event.get_label()]
-                for event in in_degree_events:
-                    self._potential_ES_events.remove_from_event_list(event)
+                # in_degree_events = self._in_degree_ES_events[exposed_infected_event.get_label()]
+                # for event in in_degree_events:
+                #     self._potential_ES_events.remove_from_event_list(event)
                 self._in_degree_ES_events[exposed_infected_event.get_label()] = []
             except KeyError:
                 pass
 
     def _add_ES_events(self, infected_node):
         infection_adjlist = self._adjlist[infected_node.get_label()]
-        if len(infection_adjlist) > 1:
+        adjlist_length = len(infection_adjlist)
+        if adjlist_length > 1:
             infected_label = infected_node.get_label()
-            length = len(infection_adjlist)
+            length = adjlist_length
             for n in range(1, length):
                 j = infection_adjlist[n]
                 if self.use_uniform_rate:
@@ -807,23 +879,38 @@ class SimulationSEIR(Simulation):
                     else:
                         edge_ij = network.Edge(infected_node, neighbor_node,
                                                self._Beta_ExposedSusceptible[infected_node.get_label()][j])
-                    self._potential_ES_events.add_to_event_list(edge_ij)
+                    # self._potential_ES_events.add_to_event_list(edge_ij)
                     try:
                         self._out_degree_ES_events[infected_node.get_label()].append(edge_ij)
+                        self._out_degree_ES_lengths[infected_node.get_label()] += 1
                     except KeyError:
                         self._out_degree_ES_events[infected_node.get_label()] = [edge_ij]
+                        self._out_degree_ES_lengths[infected_node.get_label()] = 1
                     try:
                         self._in_degree_ES_events[neighbor_node.get_label()].append(edge_ij)
                     except KeyError:
                         self._in_degree_ES_events[neighbor_node.get_label()] = [edge_ij]
+                    self._current_number_ES_events += 1
+
+                    self._potential_ES_events_flat.append(edge_ij)
+                    # the length of the above list should hopefully be the same as current number of events
+                    try:
+                        self._edge_keys_es[edge_ij.get_left_node().get_label()][
+                            edge_ij.get_right_node().get_label()] = self._next_key_es
+                    except KeyError:
+                        self._edge_keys_es[edge_ij.get_left_node().get_label()] = {
+                            edge_ij.get_right_node().get_label(): self._next_key_es}
+                    self._next_key_es += 1
 
     def _record_membership_states(self):
         # TODO assign a time series vector for number of groups for membership
         # ex. current_infected_group2.append(len(current_infected_nodes where membership==group2)
         for group in self._membership_groups:
-            infected_in_group = list(node for node in self._current_infected_nodes if node.get_membership() == group)
-            self.membership_time_series_infc[group].append(len(infected_in_group))
-            exposed_in_group = list(node for node in self._current_exposed if node.get_membership() == group)
+            infected_in_group = list(node for node in self._active_node_dict.values() if
+                                     node.get_state() == nodestate.NodeState.INFECTED and node.get_membership() == group)
+            exposed_in_group = list(node for node in self._active_node_dict.values() if
+                                     node.get_state() == nodestate.NodeState.EXPOSED and node.get_membership() == group)
+            self._membership_time_series_infc[group].append(len(infected_in_group))
             self._membership_time_series_exp[group].append(len(exposed_in_group))
         # maybe don't worry about recovery? need to change the list of recovered nodes to be whole Node objects,
         # not just labels
@@ -832,12 +919,14 @@ class SimulationSEIR(Simulation):
     def _init_membership_state_time_series(self):
         self.membership_time_series_infc = {}
         for group in self._membership_groups:
-            self.membership_time_series_infc[group] = []
+            self._membership_time_series_infc[group] = []
             self._membership_time_series_rec[group] = []
             self._membership_time_series_exp[group] = []
 
-    def tabulate_continuous_time(self, time_buckets=100, custom_range=False, custom_t_lim=100):
+    def tabulate_continuous_time(self, time_buckets=100, custom_range=False, custom_t_lim=100, active_gen_info=False,
+                                 active_gen_sizes=False):
         # TODO add doc strings since return type differs
+        # TODO need to fix
         max_time = max(self._time_series)
         time_partition = np.linspace(0, max_time + 1, time_buckets, endpoint=False)
         if custom_range:
@@ -847,41 +936,46 @@ class SimulationSEIR(Simulation):
         recover_time_series = np.zeros(len(time_partition))
         ts_length = len(self._time_series)
 
+        active_gen_time_series = np.zeros(len(time_partition))
+        total_gen_time_series = np.zeros(len(time_partition))
+        active_gen_sizes_ts = np.zeros((len(time_partition), 100))
+        if active_gen_sizes:
+            self._gens_size_over_time = np.array(self._gens_size_over_time)
+
+        idx_floor = 0
         try:
             for t in range(ts_length - 1):
                 real_time_val = self._time_series[t]
                 real_time_infected = self._real_time_srs_infc[t]
-                for idx in range(time_buckets):
-                    upper_val = time_partition[idx]
-                    if real_time_val < upper_val:
-                        infection_time_series[idx] = real_time_infected
-        except IndexError:
-            print('No values for infection time series')
-
-        try:
-            for t in range(ts_length - 1):
-                real_time_val = self._time_series[t]
-                real_time_recovered = self._real_time_srs_rec[t]
-                # determine what index it goes in
-                for idx in range(time_buckets):
-                    upper_val = time_partition[idx]
-                    if real_time_val < upper_val:
-                        recover_time_series[idx] = real_time_recovered
-        except IndexError:
-            print('No values for recovery time series')
-
-        try:
-            for t in range(ts_length - 1):
-                real_time_val = self._time_series[t]
                 real_time_exposed = self._real_time_srs_exp[t]
-                # determine what index it goes in
-                for idx in range(time_buckets):
+                real_time_recovered = self._real_time_srs_rec[t]
+                real_time_active_gens = self.active_gen_ts[t]
+                real_time_total_gens = self.total_gen_ts[t]
+                if active_gen_sizes:
+                    real_time_gen_sizes = self._gens_size_over_time[t]
+                found_soonest = False
+                idx = idx_floor
+                while not found_soonest:
                     upper_val = time_partition[idx]
-                    if real_time_val < upper_val:
-                        exposed_time_series[idx] = real_time_exposed
+                    if real_time_val <= upper_val:
+                        idx_floor = idx
+                        infection_time_series[idx:] = real_time_infected
+                        recover_time_series[idx:] = real_time_recovered
+                        exposed_time_series[idx:] = real_time_exposed
+                        active_gen_time_series[idx:] = real_time_active_gens
+                        total_gen_time_series[idx:] = real_time_total_gens
+                        if active_gen_sizes:
+                            active_gen_sizes_ts[idx:] = real_time_gen_sizes
+                        found_soonest = True
+                    idx += 1
         except IndexError:
-            print('No values for exposed time series')
-
+            print(f'Must increase parameter custom_t_lim higher than {custom_t_lim} or full results will not be returned')
+        if active_gen_info and active_gen_sizes:
+            return time_partition, infection_time_series, recover_time_series, exposed_time_series, \
+                   active_gen_time_series, total_gen_time_series, active_gen_sizes_ts
+        elif active_gen_info:
+            return time_partition, infection_time_series, recover_time_series, exposed_time_series,\
+                   active_gen_time_series, total_gen_time_series
         return time_partition, infection_time_series, recover_time_series, exposed_time_series
 
     def tabulate_continuous_time_with_groups(self, time_buckets=100, custom_range=False, custom_t_lim=100):
@@ -889,30 +983,100 @@ class SimulationSEIR(Simulation):
         time_partition = np.linspace(0, max_time + 1, time_buckets, endpoint=False)
         if custom_range:
             time_partition = np.linspace(0, custom_t_lim, time_buckets, endpoint=False)
-        infection_time_series = {}
-        exposed_time_series = {}
+        infection_time_series_group_dict = {}
+        exposed_time_series_group_dict = {}
+        # infection_time_series = np.zeros(len(time_partition))
         for group in self._membership_groups:
-            infection_time_series[group] = np.zeros(len(time_partition))
-            exposed_time_series[group] = np.zeros(len(time_partition))
+            infection_time_series_group_dict[group] = np.zeros(len(time_partition))
+            exposed_time_series_group_dict[group] = np.zeros(len(time_partition))
+        # TODO tbd grouped recovery
+        # recover_time_series = np.zeros(len(time_partition))
         ts_length = len(self._time_series)
 
+        idx_floor = 0
         try:
             for t in range(ts_length - 1):
-                for group in self._membership_groups:
-                    real_time_val = self._time_series[t]
-                    real_time_infected = self.membership_time_series_infc[group][t]
-                    real_time_exposed = self._membership_time_series_exp[group][t]
-                    for idx in range(time_buckets):
-                        upper_val = time_partition[idx]
-                        if real_time_val < upper_val:
-                            infection_time_series[group][idx] = real_time_infected
-                            exposed_time_series[group][idx] = real_time_exposed
+                real_time_val = self._time_series[t]
+                found_soonest = False
+                idx = idx_floor
+                while not found_soonest:
+                    upper_val = time_partition[idx]
+                    if real_time_val <= upper_val:
+                        idx_floor = idx
+                        for group in self._membership_groups:
+                            real_time_infected = self._membership_time_series_infc[group][t]
+                            real_time_exposed = self._membership_time_series_exp[group][t]
+                            infection_time_series_group_dict[group][idx:] = real_time_infected
+                            exposed_time_series_group_dict[group][idx:] = real_time_exposed
+                        found_soonest = True
+                    idx += 1
         except IndexError:
-            print('No values for infection time series')
+            print(
+                f'Must increase parameter custom_t_lim higher than {custom_t_lim} or full results will not be returned')
 
             # TODO tbd for recovery
 
-        return time_partition, infection_time_series, exposed_time_series
+        return time_partition, infection_time_series_group_dict, exposed_time_series_group_dict
+
+
+    def draw_event_class(self):
+        partition_end_markers = {}
+        num_of_recovery_events = self._current_number_recovery_events
+        num_of_expose_possible_events = self._current_number_IS_events #TODO fix
+        num_of_infect_possible_events = self._current_number_ES_events
+        num_of_expose_to_infection_events = self._current_number_EI_events #TODO make varaible, fix
+        partition_end_markers[0] = num_of_expose_possible_events * self._uniform_beta
+        partition_end_markers[1] = num_of_infect_possible_events * self._uniform_beta_es + partition_end_markers[0]
+        partition_end_markers[2] = num_of_expose_to_infection_events * self._uniform_gamma_ei + partition_end_markers[1]
+        partition_end_markers[3] = num_of_recovery_events * self._uniform_gamma + partition_end_markers[2]
+        random_draw = random.uniform(0, partition_end_markers[3])
+        sum_of_rates = (num_of_expose_possible_events * self._uniform_beta +
+                        num_of_infect_possible_events * self._uniform_beta_es +
+                        num_of_expose_to_infection_events * self._uniform_gamma_ei +
+                        num_of_recovery_events * self._uniform_gamma)
+        tau = random.expovariate(max(sum_of_rates, .0000001))
+        if random_draw < partition_end_markers[0]:
+            found_next_event = None
+            while found_next_event is None:
+                random_idx = int(random.uniform(0, self._next_key))
+                found_next_event = self._potential_IS_events_flat[random_idx]
+            return eventtype.EventType.INFECTEDSUSCEPTIBLE, found_next_event, tau
+        elif random_draw < partition_end_markers[1]:
+            found_next_event = None
+            while found_next_event is None:
+                random_idx = int(random.uniform(0, self._next_key_es))
+                found_next_event = self._potential_ES_events_flat[random_idx]
+            return eventtype.EventType.EXPOSEDSUSCEPTIBLE, found_next_event, tau
+        elif random_draw < partition_end_markers[2]:
+            found_next_event = None
+            while found_next_event is None:
+                random_idx = random.randint(0, self._max_number_EI_events)
+                if len(self._exposed_to_infected_events)==0:
+                    print('here')
+                try:
+                    next_event_label = self._exposed_to_infected_events_keys[random_idx]
+                except IndexError:
+                    continue
+                try:
+                    found_next_event = self._exposed_to_infected_events[next_event_label]
+                except KeyError:
+                    print(next_event_label, len(self._exposed_to_infected_events))
+                    continue
+            return eventtype.EventType.EXPOSEDINFECTED, found_next_event, tau
+        else:
+            found_next_event = None
+            while found_next_event is None:
+                try:
+                    random_idx = random.randint(0, self._max_num_recovery_events)
+                except ValueError:
+                    print('Value error')
+                    print(f'number recovery nodes {print(len(self._recovery_events))}')
+                next_event_label = self._recovery_events_keys[random_idx]
+                try:
+                    found_next_event = self._recovery_events[next_event_label]
+                except KeyError:
+                    continue
+            return eventtype.EventType.RECOVER, found_next_event, tau
 
 
 def draw_tau(event_catalog, uniform_rate=False):

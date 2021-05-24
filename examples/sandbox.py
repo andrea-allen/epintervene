@@ -506,11 +506,11 @@ def membership():
     sim = simulation.Simulation(N=len(A), adj_list=adjlist, membership_groups=['tiger', 'bird', 'elephant'],
                                 node_memberships=node_membership_vector)
     sim.set_uniform_beta(0.5)
-    sim.set_uniform_gamma(0.1)
+    sim.set_uniform_gamma(0.21)
     sim.run_sim(with_memberships=True, wait_for_recovery=True, uniform_rate=True)
 
     ts, membership_ts_infc = sim.tabulate_continuous_time_with_groups(time_buckets=1000, custom_range=True,
-                                                                      custom_t_lim=15)
+                                                                      custom_t_lim=30)
     plt.figure(0)
     for group in membership_ts_infc.keys():
         plt.plot(ts, membership_ts_infc[group], label=group)
@@ -520,7 +520,7 @@ def membership():
     plt.title('SIR Continuous time results with group membership')
     plt.show()
 
-    ts, infect_ts, recover_ts = sim.tabulate_continuous_time(time_buckets=1000, custom_range=True, custom_t_lim=10)
+    ts, infect_ts, recover_ts = sim.tabulate_continuous_time(time_buckets=1000, custom_range=True, custom_t_lim=30)
     plt.figure(1)
     plt.plot(ts, infect_ts, color='blue', label='Infected')
     plt.plot(ts, recover_ts, color='green', label='Recovered')
@@ -541,24 +541,21 @@ def membership():
 
 
     # SEIR model sandbox
-    sim = simulation.SimulationSEIR(N=len(A), adjmatrix=A, adjlist=adjlist, node_memberships=node_membership_vector, membership_groups=['tiger', 'bird', 'elephant'])
-    Beta_IS = np.full((len(A), len(A)), 0.25)
-    Gamma = np.full(len(A), 1.0)
-    Beta_ES = np.full((len(A), len(A)), 0.25)
-    Theta_EI = np.full(len(A), 1.0)
-    sim.add_infection_event_rates(Beta_IS)
-    sim.add_exposed_event_rates(Beta_ES)
-    sim.add_recover_event_rates(Gamma)
-    sim.add_exposed_infected_event_rates(Theta_EI)
+    sim = simulation.SimulationSEIR(N=len(A), adjlist=adjlist, node_memberships=node_membership_vector, membership_groups=['tiger', 'bird', 'elephant'])
+    # Idea: To set non uniform rates, you could do a regular SIR model with membership groups,
+    # and have the membership groups have their own beta/gamma values (i.e. if it spreads more quickly
+    # in certain communities, not just because of the network) but then you don't have to track memberships, just use them
 
-    adjlist = nb.create_adjacency_list(G)
-    sim.set_adjlist(adjlist)
-    # sim.set_uniform_gamma(1.0)
-    # sim.set_uniform_beta(0.25)
-    # sim.set_uniform_beta_es(0.25)
-    # sim.set_uniform_gamma_ei(1.0)
 
-    sim.run_sim(with_memberships=True, wait_for_recovery=True, uniform_rate=False)
+    sim.set_uniform_gamma(0.00001)
+    sim.set_uniform_beta(0.5)
+    sim.set_uniform_beta_es(0.5)
+    sim.set_uniform_gamma_ei(1.0)
+
+## TODO 5/21: next thing to do is fix the whole SEIR simulation problem. Then after that
+    # should fix intervention code in the extended simulation package.
+    # then need to push and fix all the references. (do after weekend)
+    sim.run_sim(with_memberships=True, wait_for_recovery=True, uniform_rate=True)
 
     ts, membership_ts_infc, membership_ts_exp = sim.tabulate_continuous_time_with_groups(1000, custom_range=True, custom_t_lim=10)
     plt.figure(0)
