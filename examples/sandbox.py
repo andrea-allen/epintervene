@@ -359,7 +359,7 @@ def uniform_reduction():
     G, pos = nb.from_degree_distribution(10000, powerlaw)
     adjlist = nb.create_adjacency_list(G)
     A = np.array(nx.adjacency_matrix(G).todense())
-    sim = extended_simulation.UniversalInterventionSim(N=len(A), A=A, adjlist=adjlist)
+    sim = extended_simulation.UniversalInterventionSim(N=len(A), adjlist=adjlist)
     sim.configure_intervention(4, 0.6)
     sim.set_uniform_beta(0.9)
     sim.set_uniform_gamma(0.1)
@@ -838,7 +838,7 @@ def expovariate_versions():
 
 if __name__=='__main__':
     # visualize_network()
-    # uniform_reduction()
+    uniform_reduction()
     # chain_network()
     optimizing()
     sim_testing()

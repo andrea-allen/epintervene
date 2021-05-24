@@ -5,8 +5,8 @@ from epintervene.simobjects import nodestate
 
 
 class UniversalInterventionSim(simulation.Simulation):
-    def __init__(self, N, A=None, adjlist=None, max_unitless_sim_time=1000000, membership_groups=None, node_memberships=None):
-        super().__init__(N=N, adj_matrix=A, adj_list=adjlist, max_unitless_sim_time=max_unitless_sim_time, membership_groups=membership_groups,
+    def __init__(self, N, adjlist=None, max_unitless_sim_time=1000000, membership_groups=None, node_memberships=None):
+        super().__init__(N=N, adj_list=adjlist, max_unitless_sim_time=max_unitless_sim_time, membership_groups=membership_groups,
                          node_memberships=node_memberships)
         self.intervention_gen = None
         self.beta_redux = None
@@ -21,12 +21,20 @@ class UniversalInterventionSim(simulation.Simulation):
         self.intervention_gen = intervention_gen
         self.beta_redux = beta_redux
 
-    def run_sim(self, with_memberships=False, uniform_rate=True, wait_for_recovery=False):
+    def run_sim(self, with_memberships=False, uniform_rate=True, wait_for_recovery=False, visualize=False,
+                viz_graph=None, viz_pos=None, p_zero=None, kill_by=None, record_active_gen_sizes=False):
         self.use_uniform_rate = uniform_rate
-        if with_memberships: self.track_memberships = True
+        if self.use_uniform_rate and (
+                self._uniform_beta is None or self._uniform_gamma is None):
+            raise Exception(
+                'Since uniform_rate=True, must set all transmission and recovery parameter values via set_uniform_{param} method}')
+        if with_memberships:
+            self.track_memberships = True
         if self.track_memberships:
             self._init_membership_state_time_series()
-        self._initialize_patient_zero()
+        self._initialize_patient_zero(label=p_zero)
+        self._gens_size_over_time = []
+        self._gens_size_over_time.append(list(self._current_active_gen_sizes))
         while self._current_sim_time < self.total_sim_time:
             if not self.intervened:
                 if self._highest_gen >= self.intervention_gen:
@@ -34,13 +42,18 @@ class UniversalInterventionSim(simulation.Simulation):
                     self.time_of_intervention = self._current_sim_time
                     self.intervened = True
             # Run one step
-            self._single_step(uniform_rate=self.use_uniform_rate)
+            self._single_step(uniform_rate=uniform_rate, visualize=visualize, viz_graph=viz_graph, viz_pos=viz_pos,
+                              record_active_gen_sizes=record_active_gen_sizes)
 
             self._total_num_timesteps += 1
-            if len(self._potential_IS_events._event_list) == 0:
+            if self._current_number_IS_events == 0:
                 if not wait_for_recovery:
                     break
-                elif len(self._current_infected_nodes) == 0:
+                elif len(self._recovery_events) == 0:
+                    break
+            if kill_by is not None and self._highest_gen >= kill_by:
+                should_quit = self._check_active_gens(kill_by)
+                if should_quit:
                     break
 
     def intervene(self, reduce_current_edges=False):
@@ -51,18 +64,24 @@ class UniversalInterventionSim(simulation.Simulation):
         else:
             new_Beta = np.full((N, N), self.beta_redux)
             self.Beta = new_Beta
-        # change event rate for each existing edge pair
-        if reduce_current_edges:
-            for edge in self._potential_IS_events._event_list:
-                if self.use_uniform_rate:
-                    edge.set_event_rate(self.beta_redux)
-                else:
-                    edge.set_event_rate(self.Beta[edge.i.label][edge.j.label])
+        # # change event rate for each existing edge pair
+        # # NO LONGER NECESSARY WITH REQUIRED UNIFORM RATE
+        # if reduce_current_edges:
+        #     for edge in self._potential_IS_events._event_list:
+        #         if self.use_uniform_rate:
+        #             edge.set_event_rate(self.beta_redux)
+        #         else:
+        #             edge.set_event_rate(self.Beta[edge.i.label][edge.j.label])
 
 
 class RandomInterventionSim(simulation.Simulation):
-    def __init__(self, N, adjmatrix=None, adjlist=None, max_unitless_sim_time=1000000, membership_groups=None, node_memberships=None):
-        super().__init__(N=N, adj_matrix=adjmatrix, adj_list=adjlist, max_unitless_sim_time=max_unitless_sim_time, membership_groups=membership_groups,
+    # TODO need to find new algorithm for random proportion vaccinated
+    # # likely can just do some labeling algorithm in a dictionary form with the label
+    # # of the node, such that if that node is becoming infected or infecting then it'll have a
+    # # different rate. That being said, probably need to put them in another class for rate purposes
+    # # so as to correctly determine the waiting time until the next event...
+    def __init__(self, N, adjlist=None, max_unitless_sim_time=1000000, membership_groups=None, node_memberships=None):
+        super().__init__(N=N, adj_list=adjlist, max_unitless_sim_time=max_unitless_sim_time, membership_groups=membership_groups,
                          node_memberships=node_memberships)
         self.intervention_gen = None
         self.beta_redux = None
