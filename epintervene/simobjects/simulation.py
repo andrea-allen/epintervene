@@ -4,28 +4,6 @@ from epintervene.simobjects import eventtype
 from epintervene.simobjects import nodestate
 import random
 
-
-class EventList:
-    def __init__(self, event_type, event_list):
-        self._event_list = event_list
-        self._event_type = event_type
-
-    def add_to_event_list(self, event):
-        self._event_list.append(event)
-
-    def remove_from_event_list(self, event):
-        try:
-            self._event_list.remove(event)
-        except ValueError:
-            pass
-
-    def get_type(self):
-        return self._event_type.name
-
-    def __getattribute__(self, item):
-        return object.__getattribute__(self, item)
-
-
 class Simulation:
     """
     An SIR simulation object storing network information, rate parameters, and simulation run results.
@@ -47,11 +25,9 @@ class Simulation:
         self._N = N
         self._uniform_beta = None
         self._uniform_gamma = None
-        # self._potential_IS_events = EventList(eventtype.EventType.INFECTEDSUSCEPTIBLE, [])
         self._out_degree_IS_events = {}
         self._out_degree_IS_lengths = {}
         self._in_degree_IS_events = {}
-        # self._potential_recovery_events = EventList(eventtype.EventType.RECOVER, [])
         self._recovered_nodes = []
         self._recovery_events = {}
         self._recovery_events_keys = []
@@ -147,7 +123,6 @@ class Simulation:
         self.active_gen_ts.append(1)
         self.total_gen_ts.append(1)
         self._current_active_gen_sizes[0] = 1
-        # self._potential_recovery_events.add_to_event_list(patient_zero)
         self._recovery_events[p_zero_idx] = patient_zero
         self._recovery_events_keys.append(p_zero_idx)
         self._current_number_recovery_events = 1
@@ -224,7 +199,6 @@ class Simulation:
                 self._recovery_events_keys.append(infection_event.get_right_node().get_label())
                 self._current_number_recovery_events += 1
                 self._max_num_recovery_events += 1
-                # self._potential_recovery_events.add_to_event_list(infection_event.get_right_node())
 
                 try:  # If they are a member of an existing generation, bookkeeping will happen here:
                     self._gen_collection[infection_event.get_right_node().get_generation()].append(
@@ -319,8 +293,6 @@ class Simulation:
         if adjlist_length > 1:
             infected_label = infected_node.get_label()
             length = adjlist_length
-            self.infectious_degree_counter.append( #not doing this anymore
-                length - 2)  # subtract 2, 1 for itself (1st list entry) and 1 for the edge it got infected by
             for n in range(1, length):
                 j = infection_adjlist[n]
                 if self.use_uniform_rate:
@@ -349,7 +321,6 @@ class Simulation:
                         self._in_degree_IS_events[neighbor_node.get_label()] = [edge_ij]
                     self._current_number_IS_events += 1
                     # Dict of Dicts which holds the "key" to the flat list
-                    #TODO need to do this for SEIR ES events too for speed (done now)
                     self._potential_IS_events_flat.append(edge_ij)
                     # the length of the above list should hopefully be the same as current number of events
                     try:
@@ -410,7 +381,7 @@ class Simulation:
 
     def draw_event_class(self):
         partition_end_markers = {}
-        num_of_recovery_events = self._current_number_recovery_events #todo make sure this works instead of max...
+        num_of_recovery_events = self._current_number_recovery_events
         num_of_infection_possible_events = self._current_number_IS_events
         partition_end_markers[0] = num_of_infection_possible_events * self._uniform_beta
         partition_end_markers[1] = num_of_infection_possible_events * self._uniform_beta + num_of_recovery_events * self._uniform_gamma
@@ -580,7 +551,6 @@ class Simulation:
         return time_partition, infection_time_series_group_dict
 
 
-# TODO: for publishing, could just remove access to SEIR for the package so it can't be accessed, then correct it later
 class SimulationSEIR(Simulation):
     """
     An SEIR simulation object storing network information, rate parameters, and simulation run results.
@@ -600,8 +570,6 @@ class SimulationSEIR(Simulation):
         """
         super().__init__(adj_list=adjlist, N=N, max_unitless_sim_time=max_unitless_sim_time,
                          membership_groups=membership_groups, node_memberships=node_memberships)
-        # self._potential_ES_events = EventList(eventtype.EventType.EXPOSEDSUSCEPTIBLE, [])
-        # self._potential_EI_events = EventList(eventtype.EventType.EXPOSEDINFECTED, [])
         self._current_exposed = []
         self._current_number_ES_events = 0
         self._current_number_EI_events = 0
@@ -665,55 +633,32 @@ class SimulationSEIR(Simulation):
                 if should_quit:
                     break
 
-    #TODO in progress
     def _single_step(self, visualize=False, uniform_rate=True, viz_graph=None, viz_pos=None,
                      record_active_gen_sizes=False):
         self.use_uniform_rate = uniform_rate
         if visualize:
             self._visualize_network(viz_graph, viz_pos)
-        event_class, next_event, tau = self.draw_event_class() #TODO come back to this!!
+        event_class, next_event, tau = self.draw_event_class()
         self._current_sim_time += tau
-        print(f'{self._current_sim_time} out of {self.total_sim_time}')
         self._time_series.append(self._time_series[-1] + tau)
         self._real_time_srs_infc.append(
             self._current_number_recovery_events)
-        self._real_time_srs_exp.append(self._current_number_EI_events) #todo check this is right
+        self._real_time_srs_exp.append(self._current_number_EI_events)
         self._real_time_srs_rec.append(len(self._recovered_nodes))
         if record_active_gen_sizes:
             self._gens_size_over_time.append(list(self._current_active_gen_sizes))
-        # TODO the above should replace:
-        # event_catolog = [self._potential_IS_events, self._potential_recovery_events, self._potential_ES_events,
-        #                  self._potential_EI_events]
-        # tau = draw_tau(event_catolog, uniform_rate=self.use_uniform_rate)
-
-        # self._real_time_srs_infc.append(len(self._current_infected_nodes))
-        # self._real_time_srs_rec.append(len(self._recovered_nodes))
-        # self._real_time_srs_exp.append(len(self._current_exposed))
         if self.track_memberships:
             self._record_membership_states()
 
-        # event_class = draw_event_class(event_catolog,
-        #                                uniform_rate=self.use_uniform_rate)  # This is returning a whole list of events
         if event_class is not None:
-            # next_event = draw_event(event_class, self.use_uniform_rate)
-            # if event_class._event_type == eventtype.EventType.INFECTEDSUSCEPTIBLE:
             if event_class == eventtype.EventType.INFECTEDSUSCEPTIBLE:
                 infection_event = next_event
                 infection_event.expose()
-                #self._ need a self._ei_events thing like self._recovery_events
                 self._exposed_to_infected_events[infection_event.get_right_node().get_label()] = infection_event.get_right_node()
                 self._exposed_to_infected_events_keys.append(infection_event.get_right_node().get_label())
                 self._current_number_EI_events += 1
                 self._max_number_EI_events += 1
-                # self._potential_IS_events.remove_from_event_list(infection_event)
-                # self._current_exposed.append(infection_event.get_right_node())
-                # if self.use_uniform_rate:
-                #     infection_event.get_right_node().set_event_rate(
-                #         self._uniform_gamma_ei)
-                # else:
-                #     infection_event.get_right_node().set_event_rate(
-                #         self._Theta_ExposedInfected[infection_event.get_right_node().get_label()])
-                # self._potential_EI_events.add_to_event_list(infection_event.get_right_node())
+
                 try:  # If they are a member of an existing generation, bookkeeping will happen here:
                     self._gen_collection[infection_event.get_right_node().get_generation()].append(
                         infection_event.get_right_node().get_label())
@@ -744,8 +689,6 @@ class SimulationSEIR(Simulation):
                 self._exposed_to_infected_events_keys.append(exposure_event.get_right_node().get_label())
                 self._current_number_EI_events += 1
                 self._max_number_EI_events += 1
-                # self._potential_ES_events.remove_from_event_list(exposure_event)
-                # self._current_exposed.append(exposure_event.get_right_node())
                 try:  # If they are a member of an existing generation, bookkeeping will happen here:
                     self._gen_collection[exposure_event.get_right_node().get_generation()].append(
                         exposure_event.get_right_node().get_label())
@@ -772,7 +715,6 @@ class SimulationSEIR(Simulation):
 
             elif event_class == eventtype.EventType.EXPOSEDINFECTED:
                 exposed_infected_event = next_event
-                # self._potential_EI_events.remove_from_event_list(exposed_infected_event)
                 exposed_infected_event.infect()
                 self._current_number_recovery_events += 1
                 self._max_num_recovery_events += 1
@@ -782,15 +724,11 @@ class SimulationSEIR(Simulation):
                 self._exposed_to_infected_events.pop(exposed_infected_event.get_label())
                 self._current_number_EI_events -= 1
 
-                # self._potential_recovery_events.add_to_event_list(exposed_infected_event)
                 self._update_ES_events(exposed_infected_event=exposed_infected_event)
-                # self._current_infected_nodes.append(exposed_infected_event)
-                # self._current_exposed.remove(exposed_infected_event)
                 self._add_IS_events(exposed_infected_event)
 
             elif event_class == eventtype.EventType.RECOVER:
                 recovery_event = next_event
-                # self._potential_recovery_events.remove_from_event_list(recovery_event)
                 recovery_event.recover()
                 self._recovery_events.pop(recovery_event.get_label())
                 self._current_number_recovery_events -= 1
@@ -821,7 +759,6 @@ class SimulationSEIR(Simulation):
             try:
                 in_degree_events = self._in_degree_ES_events[infection_ES_event.get_right_node().get_label()]
                 for event in in_degree_events:
-                    # self._potential_ES_events.remove_from_event_list(event)
                     left_node_idx = event.get_left_node().get_label()
                     try:
                         self._out_degree_ES_events[left_node_idx].remove(event)
@@ -850,9 +787,6 @@ class SimulationSEIR(Simulation):
             except KeyError:
                 pass
             try:
-                # in_degree_events = self._in_degree_ES_events[exposed_infected_event.get_label()]
-                # for event in in_degree_events:
-                #     self._potential_ES_events.remove_from_event_list(event)
                 self._in_degree_ES_events[exposed_infected_event.get_label()] = []
             except KeyError:
                 pass
@@ -861,7 +795,6 @@ class SimulationSEIR(Simulation):
         infection_adjlist = self._adjlist[infected_node.get_label()]
         adjlist_length = len(infection_adjlist)
         if adjlist_length > 1:
-            infected_label = infected_node.get_label()
             length = adjlist_length
             for n in range(1, length):
                 j = infection_adjlist[n]
@@ -879,7 +812,6 @@ class SimulationSEIR(Simulation):
                     else:
                         edge_ij = network.Edge(infected_node, neighbor_node,
                                                self._Beta_ExposedSusceptible[infected_node.get_label()][j])
-                    # self._potential_ES_events.add_to_event_list(edge_ij)
                     try:
                         self._out_degree_ES_events[infected_node.get_label()].append(edge_ij)
                         self._out_degree_ES_lengths[infected_node.get_label()] += 1
@@ -893,7 +825,6 @@ class SimulationSEIR(Simulation):
                     self._current_number_ES_events += 1
 
                     self._potential_ES_events_flat.append(edge_ij)
-                    # the length of the above list should hopefully be the same as current number of events
                     try:
                         self._edge_keys_es[edge_ij.get_left_node().get_label()][
                             edge_ij.get_right_node().get_label()] = self._next_key_es
@@ -925,8 +856,6 @@ class SimulationSEIR(Simulation):
 
     def tabulate_continuous_time(self, time_buckets=100, custom_range=False, custom_t_lim=100, active_gen_info=False,
                                  active_gen_sizes=False):
-        # TODO add doc strings since return type differs
-        # TODO need to fix
         max_time = max(self._time_series)
         time_partition = np.linspace(0, max_time + 1, time_buckets, endpoint=False)
         if custom_range:
@@ -1022,9 +951,9 @@ class SimulationSEIR(Simulation):
     def draw_event_class(self):
         partition_end_markers = {}
         num_of_recovery_events = self._current_number_recovery_events
-        num_of_expose_possible_events = self._current_number_IS_events #TODO fix
+        num_of_expose_possible_events = self._current_number_IS_events
         num_of_infect_possible_events = self._current_number_ES_events
-        num_of_expose_to_infection_events = self._current_number_EI_events #TODO make varaible, fix
+        num_of_expose_to_infection_events = self._current_number_EI_events
         partition_end_markers[0] = num_of_expose_possible_events * self._uniform_beta
         partition_end_markers[1] = num_of_infect_possible_events * self._uniform_beta_es + partition_end_markers[0]
         partition_end_markers[2] = num_of_expose_to_infection_events * self._uniform_gamma_ei + partition_end_markers[1]
@@ -1051,8 +980,6 @@ class SimulationSEIR(Simulation):
             found_next_event = None
             while found_next_event is None:
                 random_idx = random.randint(0, self._max_number_EI_events)
-                if len(self._exposed_to_infected_events)==0:
-                    print('here')
                 try:
                     next_event_label = self._exposed_to_infected_events_keys[random_idx]
                 except IndexError:
@@ -1060,7 +987,6 @@ class SimulationSEIR(Simulation):
                 try:
                     found_next_event = self._exposed_to_infected_events[next_event_label]
                 except KeyError:
-                    print(next_event_label, len(self._exposed_to_infected_events))
                     continue
             return eventtype.EventType.EXPOSEDINFECTED, found_next_event, tau
         else:
@@ -1077,77 +1003,3 @@ class SimulationSEIR(Simulation):
                 except KeyError:
                     continue
             return eventtype.EventType.RECOVER, found_next_event, tau
-
-
-def draw_tau(event_catalog, uniform_rate=False):
-    list_of_events = []
-    for event_group in event_catalog:
-        list_of_events.append(event_group._event_list)
-    if uniform_rate:
-        sum_of_rates = 0
-        for i in range(len(list_of_events)):
-            current_list = list_of_events[i]
-            try:
-                rate = current_list[0].get_event_rate()
-                sum_of_rates += rate * len(current_list)
-            except IndexError:
-                continue
-
-    else:
-        list_of_events = [item for sublist in list_of_events for item in sublist]
-        sum_of_rates = np.sum(event.get_event_rate() for event in list_of_events)
-    if sum_of_rates == 0:
-        sum_of_rates += .0001
-    tau = random.expovariate(sum_of_rates)
-    # print(1/sum_of_rates)
-    return tau
-
-
-def draw_event_class(event_catalog, uniform_rate=False):
-    num_event_classes = len(event_catalog)
-    partition_end_markers = {}
-    total_combined_rate = 0
-    for event_class in range(num_event_classes):
-        events = event_catalog[event_class]._event_list
-        if uniform_rate:
-            len_events = len(events)
-            if len_events > 0:
-                idx = 0
-                first_event_rate = events[idx].get_event_rate()
-                if first_event_rate == 0.0:
-                    print(first_event_rate)
-                    while first_event_rate == 0:
-                        idx += 1
-                        first_event_rate = events[idx].get_event_rate()
-                        print(first_event_rate)
-                total_combined_rate += events[idx].get_event_rate() * len_events
-            partition_end_markers[event_class] = total_combined_rate
-        else:
-            total_combined_rate += np.sum(event.get_event_rate() for event in events)
-            partition_end_markers[event_class] = total_combined_rate
-    random_draw = random.uniform(0, total_combined_rate)
-    for i in partition_end_markers.keys():
-        if random_draw < partition_end_markers[i]:
-            return event_catalog[i]  # Document: return the whole list of events in that class
-
-
-def draw_event(event_list, use_uniform_rate=False):
-    possible_events = event_list._event_list
-    if use_uniform_rate:
-        max_rate = possible_events[0].get_event_rate()
-    else:
-        max_rate = max(event.get_event_rate() for event in possible_events)
-    accepted = False
-    random_event = None
-    L = len(event_list._event_list)  # Document: drawing weighted with re-sampling (with replacement)
-    while not accepted:
-        random_idx = random.randint(0, L)
-        random_event = event_list._event_list[random_idx]
-        if not use_uniform_rate:
-            accept_rate = random_event.get_event_rate() / max_rate
-            random_draw = random.uniform(0, 1)
-            if random_draw < accept_rate:
-                accepted = True
-        else:
-            return random_event
-    return random_event

@@ -301,7 +301,7 @@ def optimizing():
     total_total_time = 0
     for i in range(1000):
         # print(i)
-        sim = simulation.Simulation(adj_matrix=A, adj_list=adjlist, N=len(A))
+        sim = simulation.Simulation(adj_list=adjlist, N=len(A))
         # sim = extended_simulation.RandomRolloutSimulation(adjmatrix=A, adjlist=adjlist, N=len(A))
         # sim.set_adjlist(adjlist)
         # Beta = np.full((len(A), len(A)), 0.0015)
@@ -552,12 +552,11 @@ def membership():
     sim.set_uniform_beta_es(0.5)
     sim.set_uniform_gamma_ei(1.0)
 
-## TODO 5/21: next thing to do is fix the whole SEIR simulation problem. Then after that
     # should fix intervention code in the extended simulation package.
     # then need to push and fix all the references. (do after weekend)
     sim.run_sim(with_memberships=True, wait_for_recovery=True, uniform_rate=True)
 
-    ts, membership_ts_infc, membership_ts_exp = sim.tabulate_continuous_time_with_groups(1000, custom_range=True, custom_t_lim=10)
+    ts, membership_ts_infc, membership_ts_exp = sim.tabulate_continuous_time_with_groups(1000, custom_range=True, custom_t_lim=30)
     plt.figure(0)
     colors = {'tiger':'blue', 'bird':'red', 'elephant':'orange'}
     for group in membership_ts_infc.keys():
@@ -571,7 +570,7 @@ def membership():
 
 
 
-    ts, infect_ts, recover_ts, exposed_ts = sim.tabulate_continuous_time(1000, custom_range=True, custom_t_lim=10)
+    ts, infect_ts, recover_ts, exposed_ts = sim.tabulate_continuous_time(1000, custom_range=True, custom_t_lim=30)
 
     plt.figure(1)
     plt.plot(ts, infect_ts, color='red', label='Infected')
@@ -841,8 +840,8 @@ if __name__=='__main__':
     # visualize_network()
     # uniform_reduction()
     # chain_network()
-    # optimizing()
-    # sim_testing()
+    optimizing()
+    sim_testing()
     membership()
     # speed_random()
     # expovariate_versions()
