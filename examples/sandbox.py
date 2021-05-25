@@ -1,4 +1,3 @@
-import time
 import numpy as np
 from epintervene.simobjects import network
 import matplotlib.pyplot as plt

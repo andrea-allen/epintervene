@@ -457,34 +457,30 @@ class Simulation:
         ts_length = len(self._time_series)
 
         idx_floor = 0
-        try:
-            for t in range(ts_length - 1):
-                real_time_val = self._time_series[t]
-                real_time_infected = self._real_time_srs_infc[t]
-                real_time_recovered = self._real_time_srs_rec[t]
+        for t in range(ts_length - 1):
+            real_time_val = self._time_series[t]
+            real_time_infected = self._real_time_srs_infc[t]
+            real_time_recovered = self._real_time_srs_rec[t]
+            if active_gen_info:
                 real_time_active_gens = self.active_gen_ts[t]
                 real_time_total_gens = self.total_gen_ts[t]
-                if active_gen_sizes:
-                    real_time_gen_sizes = self._gens_size_over_time[t]
-                found_soonest = False
-                idx = idx_floor
-                while not found_soonest:
-                    upper_val = time_partition[idx]
-                    if real_time_val <= upper_val:
-                        idx_floor = idx
-                        infection_time_series[idx:] = real_time_infected
-                        recover_time_series[idx:] = real_time_recovered
+            if active_gen_sizes:
+                real_time_gen_sizes = self._gens_size_over_time[t]
+            found_soonest = False
+            idx = idx_floor
+            while not found_soonest and idx<time_buckets:
+                upper_val = time_partition[idx]
+                if real_time_val <= upper_val:
+                    idx_floor = idx
+                    infection_time_series[idx:] = real_time_infected
+                    recover_time_series[idx:] = real_time_recovered
+                    if active_gen_info:
                         active_gen_time_series[idx:] = real_time_active_gens
                         total_gen_time_series[idx:] = real_time_total_gens
-                        if active_gen_sizes:
-                            active_gen_sizes_ts[idx:] = real_time_gen_sizes
-                        found_soonest = True
-                    idx += 1
-
-        except IndexError:
-            print(
-                f'Must increase parameter custom_t_lim higher than {custom_t_lim} or full results will not be returned')
-
+                    if active_gen_sizes:
+                        active_gen_sizes_ts[idx:] = real_time_gen_sizes
+                    found_soonest = True
+                idx += 1
         if active_gen_info and active_gen_sizes:
             return time_partition, infection_time_series, recover_time_series, \
                    active_gen_time_series, total_gen_time_series, active_gen_sizes_ts
@@ -516,24 +512,19 @@ class Simulation:
         ts_length = len(self._time_series)
 
         idx_floor = 0
-        try:
-            for t in range(ts_length - 1):
-                real_time_val = self._time_series[t]
-                found_soonest = False
-                idx = idx_floor
-                while not found_soonest:
-                    upper_val = time_partition[idx]
-                    if real_time_val <= upper_val:
-                        idx_floor = idx
-                        for group in self._membership_groups:
-                            real_time_infected = self._membership_time_series_infc[group][t]
-                            infection_time_series_group_dict[group][idx:] = real_time_infected
-                        found_soonest = True
-                    idx += 1
-        except IndexError:
-            print(
-                f'Must increase parameter custom_t_lim higher than {custom_t_lim} or full results will not be returned')
-
+        for t in range(ts_length - 1):
+            real_time_val = self._time_series[t]
+            found_soonest = False
+            idx = idx_floor
+            while not found_soonest and idx<time_buckets:
+                upper_val = time_partition[idx]
+                if real_time_val <= upper_val:
+                    idx_floor = idx
+                    for group in self._membership_groups:
+                        real_time_infected = self._membership_time_series_infc[group][t]
+                        infection_time_series_group_dict[group][idx:] = real_time_infected
+                    found_soonest = True
+                idx += 1
 
             # TODO tbd for recovery
             # try:
@@ -872,33 +863,32 @@ class SimulationSEIR(Simulation):
             self._gens_size_over_time = np.array(self._gens_size_over_time)
 
         idx_floor = 0
-        try:
-            for t in range(ts_length - 1):
-                real_time_val = self._time_series[t]
-                real_time_infected = self._real_time_srs_infc[t]
-                real_time_exposed = self._real_time_srs_exp[t]
-                real_time_recovered = self._real_time_srs_rec[t]
+        for t in range(ts_length - 1):
+            real_time_val = self._time_series[t]
+            real_time_infected = self._real_time_srs_infc[t]
+            real_time_exposed = self._real_time_srs_exp[t]
+            real_time_recovered = self._real_time_srs_rec[t]
+            if active_gen_info:
                 real_time_active_gens = self.active_gen_ts[t]
                 real_time_total_gens = self.total_gen_ts[t]
-                if active_gen_sizes:
-                    real_time_gen_sizes = self._gens_size_over_time[t]
-                found_soonest = False
-                idx = idx_floor
-                while not found_soonest:
-                    upper_val = time_partition[idx]
-                    if real_time_val <= upper_val:
-                        idx_floor = idx
-                        infection_time_series[idx:] = real_time_infected
-                        recover_time_series[idx:] = real_time_recovered
-                        exposed_time_series[idx:] = real_time_exposed
+            if active_gen_sizes:
+                real_time_gen_sizes = self._gens_size_over_time[t]
+            found_soonest = False
+            idx = idx_floor
+            while not found_soonest and idx<time_buckets:
+                upper_val = time_partition[idx]
+                if real_time_val <= upper_val:
+                    idx_floor = idx
+                    infection_time_series[idx:] = real_time_infected
+                    recover_time_series[idx:] = real_time_recovered
+                    exposed_time_series[idx:] = real_time_exposed
+                    if active_gen_info:
                         active_gen_time_series[idx:] = real_time_active_gens
                         total_gen_time_series[idx:] = real_time_total_gens
-                        if active_gen_sizes:
-                            active_gen_sizes_ts[idx:] = real_time_gen_sizes
-                        found_soonest = True
-                    idx += 1
-        except IndexError:
-            print(f'Must increase parameter custom_t_lim higher than {custom_t_lim} or full results will not be returned')
+                    if active_gen_sizes:
+                        active_gen_sizes_ts[idx:] = real_time_gen_sizes
+                    found_soonest = True
+                idx += 1
         if active_gen_info and active_gen_sizes:
             return time_partition, infection_time_series, recover_time_series, exposed_time_series, \
                    active_gen_time_series, total_gen_time_series, active_gen_sizes_ts
@@ -923,26 +913,21 @@ class SimulationSEIR(Simulation):
         ts_length = len(self._time_series)
 
         idx_floor = 0
-        try:
-            for t in range(ts_length - 1):
-                real_time_val = self._time_series[t]
-                found_soonest = False
-                idx = idx_floor
-                while not found_soonest:
-                    upper_val = time_partition[idx]
-                    if real_time_val <= upper_val:
-                        idx_floor = idx
-                        for group in self._membership_groups:
-                            real_time_infected = self._membership_time_series_infc[group][t]
-                            real_time_exposed = self._membership_time_series_exp[group][t]
-                            infection_time_series_group_dict[group][idx:] = real_time_infected
-                            exposed_time_series_group_dict[group][idx:] = real_time_exposed
-                        found_soonest = True
-                    idx += 1
-        except IndexError:
-            print(
-                f'Must increase parameter custom_t_lim higher than {custom_t_lim} or full results will not be returned')
-
+        for t in range(ts_length - 1):
+            real_time_val = self._time_series[t]
+            found_soonest = False
+            idx = idx_floor
+            while not found_soonest and idx<time_buckets:
+                upper_val = time_partition[idx]
+                if real_time_val <= upper_val:
+                    idx_floor = idx
+                    for group in self._membership_groups:
+                        real_time_infected = self._membership_time_series_infc[group][t]
+                        real_time_exposed = self._membership_time_series_exp[group][t]
+                        infection_time_series_group_dict[group][idx:] = real_time_infected
+                        exposed_time_series_group_dict[group][idx:] = real_time_exposed
+                    found_soonest = True
+                idx += 1
             # TODO tbd for recovery
 
         return time_partition, infection_time_series_group_dict, exposed_time_series_group_dict
