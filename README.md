@@ -5,8 +5,14 @@ EpIntervene is still a work in progress. Please check back later.
 Currently still being updated to reflect current changes!!
 
 ## Usage
-This package is meant for use for SIR or SEIR simulations. Currently, calls to simulators `run()` methods
-result in a single simulation. It is up to the user to aggregate ensemble results on their own. 
+This package and its current capabilities support SIR or SEIR model simulations.
+The two primary Simulation objects can be found in the classes `epintervene.simobjects.simulation.Simulation`
+and `epintervene.simobjects.simulation.SimulationSEIR`. 
+
+Currently, calls to simulators `run_sim()` methods with the appropriate configurations and run time arguments
+result in a single simulation. It is up to the user to aggregate results from an ensemble of runs on their own.
+
+For sample usage, see the `examples` module. 
 
 ### Setting up a Simulation Object 
 A single simulation object is accessed and created via `simobjects.simulation.Simulation`
@@ -14,75 +20,88 @@ and consists of an object encapsulating all information about the configuration,
 for a single simulation. The base class, `Simulation`, will run an SIR disease model. 
 
 #### Basic Configurations
-To create, give `Simulation(A)` an adjacency matrix in the form of a `numpy array` as the only required argument for construction.
-You must also supply the simulation with a `Beta` matrix and `Gamma` vector that satisfies `Beta[i, j]` is the rate of infection
-from node `i` to `j` (note that `Beta` need not be symmetric) and `Gamma[i]` is the recovery probability for node `i`.
+To configure a `Simulation` object, you'll first need to define a network via a symmetric adjacency list.
+The `network` module has a built-in function to assist with this and is recommended in order
+to obtain an adjacency list in the right form. If supplying one's own adjacency list, make sure it is in the form
+``` 
+[line of node_label_index], node_label, neighbor, neighbor, ...
+ [line 0]                   0           1         7
+ [line 1]                   1           0         3
+ [lines ...                 ...         ...       ...
+ [line 3]                   3           1         22         26   ...
+```
 
-Add these by calling the methods     `.add_infection_event_rates(Beta)` and
-`.add_recover_event_rates(Gamma)` to your Simulation object.
+To use the built-in functions, supply a networkX object of a graph `G` and call 
+``` adjlist = network.NetworkBuilder.create_adjacency_list(G)```
+This will remove multi-edges, and make a symmetric adjacency list of the form displayed above. `G` must be
+a NetWorkX Graph object. 
+
+Then to create a simulation object, define
+```your_simulation_object = simulation.Simulation(adj_list=adjlist, N=len(adjlist))```
+where `N` is the number of nodes in your network and should be the length of the list.
+
+Then add your `beta` and `gamma` rates for infection rate and recovery rate to your simulation via
+```
+        your_simulation_object.set_uniform_beta(beta=0.004)
+        your_simulation_object.set_uniform_gamma(gamma=0.001)
+```
 
 #### Additional Configurations
-It may be the case that your network model is partitioned into sub-populations, e.g. a stochastic block model network. Or, perhaps your network
+It may be the case that your network model is partitioned into sub-populations, e.g. a stochastic block model network. Or, your network
 is based on real data for which the labels indicate specific data on a node's sub-group within the network. 
 
 For this reason, you can specify `membership_groups` and `node_memberships` when initializing a new `Simulation` object. 
 Simply provide a list of ids or labels for each unique membership group, which can be any simple data type (string, its, floats, etc)
 and then supply a vector (1-d numpy array) of the membership id for each node. The position in the vector will be read
-as the node id, and the entry will indicate the membership group. For example, for a network with 10 nodes representing a zoo, with adjacency matrix `A`, we would set up 
+as the node id, and the entry will indicate the membership group. For example, for a network with 10 nodes representing a zoo, with adjacency list `adjlist`, we would set up 
 
-```zoo_sim = Simulation(A, membership_groups=['elephant', 'tiger', 'bird'], node_memberships=['tiger', 'tiger', 'bird', 'bird', 'bird', ..., 'elephant', 'tiger']```
+```zoo_sim = Simulation(adj_list=adjlist, N=10, membership_groups=['elephant', 'tiger', 'bird'], node_memberships=['tiger', 'tiger', 'bird', 'bird', 'bird', ..., 'elephant', 'tiger']```
 
 
 #### Intervention Models and Configurations
 This package offers a few types of simulations with customizable intervention regimes. To access
 the intervention simulation objects, access via `simobjects.extended_simulation`.
 
-`RandomInterventionSim(Simulation)`
-Random Intervention is an extension of a the base `SIR` simulation in which a random set of nodes according to a specified proportion
-of the network have their transmission probabilities (their entries in the `Beta` matrix) reduced to a specified value.
-To initialize, follow the same steps as outlined in the section for the base `Simulation` class.
-The only additional configuration necessary is to configure the intervention. One needs to specify the generation of intervention,
-which will be triggered when the first node corresponding to that generation becomes infected. 
-User will also specify the `beta_redux` reduction in transmissibility for the affected nodes, and the proportion of the network
-that should have the intervention applied. Example:
+`UniversalInterventionSim(Simulation)` will reduce `beta` for the entire network to the specified `beta_redux` at the specified 
+intervention generation. How to configure:
+```
+adjlist = nb.create_adjacency_list(G)
+sim = extended_simulation.UniversalInterventionSim(N=len(adjlist), adjlist=adjlist)
+sim.set_uniform_beta(0.9)
+sim.set_uniform_gamma(0.1)
+sim.configure_intervention(intervention_gen=4, beta_redux=0.6)
+```
+This means that when the epidemic reaches generation `4`, `beta` the transmission rate will be reduced to `beta_redux`.
 
-```
-extended_simulation.RandomInterventionSim(A)
-sim.configure_intervention(intervention_gen=4, beta_redux=0.0, proportion_reduced=0.2)
-```
+`RandomInterventionSim(Simulation)`
+Still in progress. Please check back later. 
 
 Other interventions: 
 
-`UniversalInterventionSim(Simulation)` will reduce `Beta` for the entire network to the specified `beta_redux` at the specified 
-intervention generation. 
-
 `MultiInterventionSim(Simulation)` will implement a phased rollout of multiple interventions,
 which should be specified via a list of intervention generations and beta reduction values, and proportion
-of network to be affected. Currently, MultiInterventionSim only supports Random intervention. 
-Example:
-```
-sim = extended_simulation.MultiInterventionSim(A)
-sim.add_infection_event_rates(Beta)
-sim.add_recover_event_rates(Gamma)
-sim.configure_intervention(intervention_gen_list=[3, 4, 5], beta_redux_list=[0.0, 0.0, 0.0], proportion_reduced_list=[0.10, 0.15, 0.15])
-```
+of network to be affected. Still in progress. Please check back later. 
+
 
 
 #### SEIR Model
 An SEIR model simulation object can be set up and configured much in the same way as the SIR one.
 Currently, interventions are not yet supported on the SEIR framework, but this feature is coming soon.
+The SEIR simulation framework does support membership groups.
 
 The additional configurations needed from the user are additional rate matrices to describe
-the node-pair rate for Exposed-Susceptible transmission, and a network-length vector specifying the transition rate
+the node-pair rate for Exposed-Susceptible transmission, and a rate specifying the transition rate
 for individual nodes from Exposed to Infected. 
 Example:
 ```
-seir_sim = SimulationSEIR(Simulation)
-seir_sim.add_infection_event_rates(Beta_IS)
-seir_sim.add_exposed_event_rates(Beta_ES)
-seir_sim.add_recover_event_rates(Gamma)
-seir_sim.add_exposed_infected_event_rates(Theta_EI)
+seir_sim = SimulationSEIR(N=N, adjlist=adj_list)
+seir_sim.set_uniform_gamma(gamma=0.00001)
+seir_sim.set_uniform_beta(beta=0.5)
+seir_sim.set_uniform_beta_es(beta_es=0.5)
+seir_sim.set_uniform_gamma_ei(gamma_ei=1.0)
 ```
+
+Similarly, one can specify `node_memberships=node_membership_vector, membership_groups=['tiger', 'bird', 'elephant']` with the SEIR model.
 
 ### Running a Simulation object
 Once your Simulation object is set up, you are ready to run it. 
@@ -90,21 +109,41 @@ Once your Simulation object is set up, you are ready to run it.
 An important feature of EpIntervene is that even after running your simulation, the object will
 be preserved with all of its state and attributes, and can be accessed repeatedly for different 
 types of results. 
-#### If you run a simulation again, you SHOULD create a NEW Simulation objectin order to guarantee a clean state.
+#### If you run a simulation again, you SHOULD create a NEW Simulation object in order to guarantee a clean state.
 
 To run any of the simulations you've configured, call
 ```
 your_sim_object.run_sim()
 ```
-If you want to track membership groups and you have configured them, you can run
+Calling `run_sim()` without changing any of its default arguments is the simplest way to run a single simulation
+of your object. If you want to specify certain aspects of the simulation, there are a range of options you can choose from.
+
+As of now, `run_sim(uniform_rate=True)` is the default. Non-uniform rates are no longer supported so there
+is no need to specify a value for it.
+
+If you want to track membership groups and you have configured them properly, you can run
 ```
 your_sim_object.run_sim(with_memberships=True)
 ```
 
+To stop the simulation when there are no more possible infection events, you can specify
+```
+your_sim_object.run_sim(wait_for_recovery=False)
+```
+
+Other arguments:
+`kill_by=13` will stop the simulation after Generation 13 when there are no more active members of any generation from 0-13.
+
+`p_zero=i` specifies the node label/index for patient zero. If not specified, a random node index will be chosen.
+
+`record_active_gen_sizes=True/False` a boolean, defaults to False. Will record the number and size of active generations over time.
+An active node is defined as being infectious and still having susceptible neighbors. An active generation is defined as containing
+one or more active nodes belonging to that epidemic generation.
+
 ### Obtaining results from a Simulation
 #### Basic Results
-Intrinsic to the EpIntervene framework is the Event-Driven simulation framework, in which
-continuous time is tracked by drawing an exponential random variable for the time until next event at each discrete time step
+The Epintervene framework is driven by an Event-Driven algorithm, in which
+continuous time is tracked by drawing an exponential random variable for the waiting time until next event at each discrete time step
 with rate parameter the sum of the rates of all potential individual events. As a result, the resulting
 raw time series will not be normalized, making it hard to compare to an ensemble of results should the user
 intend to average the results of an ensemble. Therefore, when calling the Simulation object for
@@ -135,6 +174,9 @@ might look like `[1, 2, 4, 8, 13, 18, 37]`, which indicates that 1 node was infe
 It is worth noting for the user that, to obtain the number of nodes in each unique generation,
 one can call a `diff()` method on the result, where `ts_by_gen[i+1] - ts_by_gen[i]` will return the
 number of nodes infected in generation `i+1`.
+
+This is not a traditional time series in this form, it is a chronological list of cumulative infections
+by the birth of each epidemic generation. It does not formally correspond to continuous time results.
 
 
 #### Tracking results for population groups
@@ -169,10 +211,14 @@ by calling `from_adjacency_matrix()`
 Internal object that represents a single node in the network, created and disposed during simulations.
 #### Edge
 Internal object that represents a pair of nodes, where the left node and right node are distinct.
-An Edge also can double as an Event, equipped with an Event Rate (infection rate from left node to right susceptible node)
-
 
 ## Examples
 Coming soon.
 
-![alt text](https://github.com/andrea-allen/epintervene/blob/main/docs/sample_img.png?raw=true)
+Results of an SIR simulation (single run) with membership groups:
+
+![alt text](https://github.com/andrea-allen/epintervene/blob/main/docs/SIR_group_example.png?raw=true)
+
+![alt text](https://github.com/andrea-allen/epintervene/blob/main/docs/SIR_total_example.png?raw=true)
+
+![alt text](https://github.com/andrea-allen/epintervene/blob/main/docs/zoo_network.png?raw=true)

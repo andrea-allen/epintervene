@@ -9,6 +9,10 @@ import math
 import time
 import random
 
+def basic_simulation():
+    # TODO
+    print('Basic simulation')
+
 def visualize_network():
     nb = network.NetworkBuilder
     # powerlaw = power_law_degree_distrb(mu=100)
@@ -121,9 +125,9 @@ def chain_network():
     for i in range(num_sims):
         if i % 30 == 0:
             print(f'sim number{i}')
-        sim = simulation.Simulation(adj_matrix=A, adj_list=adjlist, N=len(A))
-        sim.set_uniform_beta(0.004)
-        sim.set_uniform_gamma(0.001)
+        sim = simulation.Simulation(adj_list=adjlist, N=len(A))
+        sim.set_uniform_beta(beta=0.004)
+        sim.set_uniform_gamma(gamma=0.001)
 
         # time_s = time.time()
         sim.run_sim(wait_for_recovery=False, uniform_rate=True, viz_pos=pos, viz_graph=G, visualize=False, p_zero=None,
@@ -360,7 +364,7 @@ def uniform_reduction():
     adjlist = nb.create_adjacency_list(G)
     A = np.array(nx.adjacency_matrix(G).todense())
     sim = extended_simulation.UniversalInterventionSim(N=len(A), adjlist=adjlist)
-    sim.configure_intervention(4, 0.6)
+    sim.configure_intervention(intervention_gen=4, beta_redux=0.6)
     sim.set_uniform_beta(0.9)
     sim.set_uniform_gamma(0.1)
 
@@ -488,7 +492,7 @@ def random_vaccination():
 def membership():
     # Creating a network from a Stochastic Block Model
     nb = network.NetworkBuilder
-    G, pos, A = create_zoo_stochastic_block_model()
+    G, pos, A = create_zoo_stochastic_block_model(tiger_elephant_block=.05, tiger_bird_block=.03, bird_elephant_block=.02)
     adjlist = nb.create_adjacency_list(G)
     # SIR model sandbox, want to have different curves for different group memberships
 
@@ -505,7 +509,7 @@ def membership():
         node_membership_vector.append('elephant')
     sim = simulation.Simulation(N=len(A), adj_list=adjlist, membership_groups=['tiger', 'bird', 'elephant'],
                                 node_memberships=node_membership_vector)
-    sim.set_uniform_beta(0.5)
+    sim.set_uniform_beta(0.7)
     sim.set_uniform_gamma(0.21)
     sim.run_sim(with_memberships=True, wait_for_recovery=True, uniform_rate=True)
 
@@ -518,25 +522,28 @@ def membership():
     plt.ylabel('Number of nodes infected in network group')
     plt.legend(loc='upper left')
     plt.title('SIR Continuous time results with group membership')
+    plt.box(on=False)
     plt.show()
 
     ts, infect_ts, recover_ts = sim.tabulate_continuous_time(time_buckets=1000, custom_range=True, custom_t_lim=30)
-    plt.figure(1)
+    plt.figure(1, frameon=False)
     plt.plot(ts, infect_ts, color='blue', label='Infected')
     plt.plot(ts, recover_ts, color='green', label='Recovered')
     plt.xlabel('Time t')
     plt.ylabel('Number of nodes in class')
-    plt.title('SIR Continuous time results (total population, without showing group membership)')
+    plt.title('SIR Continuous time results \n(total population, without showing group membership)')
     plt.legend(loc='upper left')
+    plt.box(on=False)
     # plt.show()
 
     ts_by_gen = sim.tabulate_generation_results(20)
-    plt.figure(2)
+    plt.figure(2, frameon=False)
     plt.plot(np.arange(len(ts_by_gen)), ts_by_gen)
     plt.scatter(np.arange(len(ts_by_gen)), ts_by_gen)
     plt.xlabel('Generation number')
     plt.ylabel('Cumulative infections by generation')
     plt.title('SIR Cumulative Epidemic Generation size results')
+    plt.box(on=False)
     plt.show()
 
 
@@ -645,6 +652,7 @@ def create_zoo_stochastic_block_model(N=300, tiger_bird_block = 0.01, bird_eleph
     nx.draw_networkx_nodes(G, pos, G.nodes(), node_color=node_colors.values(), node_size=20)
     nx.draw_networkx_edges(G, pos)
     plt.title('Tigers (blue), Bird (red), Elephant (orange) network')
+    plt.box(on=False)
     # plt.show()
     return G, pos, A
 
@@ -838,10 +846,10 @@ def expovariate_versions():
 
 if __name__=='__main__':
     # visualize_network()
-    uniform_reduction()
+    # uniform_reduction()
     # chain_network()
-    optimizing()
-    sim_testing()
+    # optimizing()
+    # sim_testing()
     membership()
     # speed_random()
     # expovariate_versions()
