@@ -368,6 +368,9 @@ class Simulation:
         for group in self._membership_groups:
             infected_in_group = list(node for node in self._active_node_dict.values() if node.get_state() == nodestate.NodeState.INFECTED and node.get_membership() == group)
             self._membership_time_series_infc[group].append(len(infected_in_group))
+            recovered_in_group = list(node for node in self._active_node_dict.values() if
+                                     node.get_state() == nodestate.NodeState.RECOVERED and node.get_membership() == group)
+            self._membership_time_series_rec[group].append(len(recovered_in_group))
 
     def _init_membership_state_time_series(self):
         self._membership_time_series_infc = {}
@@ -504,11 +507,10 @@ class Simulation:
         if custom_range:
             time_partition = np.linspace(0, custom_t_lim, time_buckets, endpoint=False)
         infection_time_series_group_dict = {}
-        # infection_time_series = np.zeros(len(time_partition))
+        recover_time_series_group_dict = {}
         for group in self._membership_groups:
             infection_time_series_group_dict[group] = np.zeros(len(time_partition))
-        # TODO tbd grouped recovery
-        # recover_time_series = np.zeros(len(time_partition))
+            recover_time_series_group_dict[group] = np.zeros(len(time_partition))
         ts_length = len(self._time_series)
 
         idx_floor = 0
@@ -522,24 +524,13 @@ class Simulation:
                     idx_floor = idx
                     for group in self._membership_groups:
                         real_time_infected = self._membership_time_series_infc[group][t]
+                        real_time_recovered = self._membership_time_series_rec[group][t]
                         infection_time_series_group_dict[group][idx:] = real_time_infected
+                        recover_time_series_group_dict[group][idx:] = real_time_recovered
                     found_soonest = True
                 idx += 1
 
-            # TODO tbd for recovery
-            # try:
-            #     for t in range(ts_length - 1):
-            #         real_time_val = self.time_series[t]
-            #         real_time_recovered = self.real_time_srs_rec[t]
-            #         # determine what index it goes in
-            #         for idx in range(time_buckets):
-            #             upper_val = time_partition[idx]
-            #             if real_time_val < upper_val:
-            #                 recover_time_series[idx] = real_time_recovered
-            # except IndexError:
-            print('No values for recovery time series')
-
-        return time_partition, infection_time_series_group_dict
+        return time_partition, infection_time_series_group_dict, recover_time_series_group_dict
 
 
 class SimulationSEIR(Simulation):
@@ -832,11 +823,11 @@ class SimulationSEIR(Simulation):
                                      node.get_state() == nodestate.NodeState.INFECTED and node.get_membership() == group)
             exposed_in_group = list(node for node in self._active_node_dict.values() if
                                      node.get_state() == nodestate.NodeState.EXPOSED and node.get_membership() == group)
+            recovered_in_group = list(node for node in self._active_node_dict.values() if
+                                     node.get_state() == nodestate.NodeState.RECOVERED and node.get_membership() == group)
             self._membership_time_series_infc[group].append(len(infected_in_group))
             self._membership_time_series_exp[group].append(len(exposed_in_group))
-        # maybe don't worry about recovery? need to change the list of recovered nodes to be whole Node objects,
-        # not just labels
-        # self.real_time_srs_rec.append(len(self.recovered_nodes))
+            self._membership_time_series_rec[group].append(len(recovered_in_group))
 
     def _init_membership_state_time_series(self):
         self.membership_time_series_infc = {}
@@ -904,12 +895,13 @@ class SimulationSEIR(Simulation):
             time_partition = np.linspace(0, custom_t_lim, time_buckets, endpoint=False)
         infection_time_series_group_dict = {}
         exposed_time_series_group_dict = {}
+        recovered_time_series_group_dict = {}
         # infection_time_series = np.zeros(len(time_partition))
         for group in self._membership_groups:
             infection_time_series_group_dict[group] = np.zeros(len(time_partition))
             exposed_time_series_group_dict[group] = np.zeros(len(time_partition))
-        # TODO tbd grouped recovery
-        # recover_time_series = np.zeros(len(time_partition))
+            recovered_time_series_group_dict[group] = np.zeros(len(time_partition))
+
         ts_length = len(self._time_series)
 
         idx_floor = 0
@@ -924,13 +916,14 @@ class SimulationSEIR(Simulation):
                     for group in self._membership_groups:
                         real_time_infected = self._membership_time_series_infc[group][t]
                         real_time_exposed = self._membership_time_series_exp[group][t]
+                        real_time_recovered = self._membership_time_series_rec[group][t]
                         infection_time_series_group_dict[group][idx:] = real_time_infected
                         exposed_time_series_group_dict[group][idx:] = real_time_exposed
+                        recovered_time_series_group_dict[group][idx:] = real_time_recovered
                     found_soonest = True
                 idx += 1
-            # TODO tbd for recovery
 
-        return time_partition, infection_time_series_group_dict, exposed_time_series_group_dict
+        return time_partition, infection_time_series_group_dict, exposed_time_series_group_dict, recovered_time_series_group_dict
 
 
     def draw_event_class(self):

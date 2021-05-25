@@ -213,12 +213,12 @@ Internal object that represents a single node in the network, created and dispos
 Internal object that represents a pair of nodes, where the left node and right node are distinct.
 
 ## Examples
-Coming soon.
+See module `examples.sandbox.py` for examples of basic SIR, SEIR, and group membership simulations.
 
 Results of an SIR simulation (single run) with membership groups:
 
-![alt text](https://github.com/andrea-allen/epintervene/blob/main/docs/SIR_group_example.png?raw=true)
+![alt text](https://github.com/andrea-allen/epintervene/blob/main/docs/SEIR_group_example.png?raw=true)
 
-![alt text](https://github.com/andrea-allen/epintervene/blob/main/docs/SIR_total_example.png?raw=true)
+![alt text](https://github.com/andrea-allen/epintervene/blob/main/docs/SEIR_total.png?raw=true)
 
-![alt text](https://github.com/andrea-allen/epintervene/blob/main/docs/zoo_network.png?raw=true)
+![alt text](https://github.com/andrea-allen/epintervene/blob/main/docs/SEIR_network.png?raw=true)
