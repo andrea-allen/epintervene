@@ -31,11 +31,9 @@ class Simulation:
         self._recovered_nodes = []
         self._recovery_events = {}
         self._recovery_events_keys = []
-        self._current_infected_nodes = []
         self._highest_gen = 0
         self._gen_collection = {}
         self._gen_collection_active = {}
-        self._active_nodes = []
         self._active_node_dict = {}
         self._total_num_timesteps = 0
         self._time_series = [0]
@@ -97,6 +95,16 @@ class Simulation:
     def set_uniform_gamma(self, gamma):
         self._uniform_gamma = gamma
 
+    def _reset_node_states(self):
+        # WARNING: Not to be used outside of designated purpose. Not sufficient for re-starting a simulation.
+        self._out_degree_IS_events = {}
+        self._out_degree_IS_lengths = {}
+        self._in_degree_IS_events = {}
+        self._current_number_IS_events = 0
+        self._potential_IS_events_flat = []
+        self._edge_keys = {}
+        self._next_key = 0
+
     def _initialize_patient_zero(self, label=None):
         if label is None:
             p_zero_idx = random.randint(0, self._N - 1)
@@ -116,7 +124,6 @@ class Simulation:
             patient_zero = network.Node(p_zero_idx, 0, nodestate.NodeState.INFECTED, event_rate=self._Gamma[p_zero_idx])
         if self.track_memberships:
             patient_zero.set_membership(self._node_memberships[p_zero_idx])
-        self._active_nodes.append(patient_zero)
         self._active_node_dict[p_zero_idx] = patient_zero
         self._gen_collection[0] = [p_zero_idx]
         self._gen_collection_active[0] = [p_zero_idx]
@@ -351,18 +358,6 @@ class Simulation:
             if e.equals(edge):
                 return True
         return False
-
-    def _prune_IS_edges(self):
-        # TODO need to work on to use only adjlist, new adjlist
-        for edge in self._potential_IS_events._event_list:
-            try:
-                edge_exists_in_network = (
-                        self._A[edge.get_left_node().get_label()][edge.get_right_node().get_label()] == 1)
-                if not edge_exists_in_network:
-                    self._potential_IS_events.remove_from_event_list(edge)
-            except IndexError:
-                self._potential_IS_events.remove_from_event_list(
-                    edge)  # This happens if the new network no longer contains that node, can remove them
 
     def _record_membership_states(self):
         for group in self._membership_groups:
@@ -924,7 +919,6 @@ class SimulationSEIR(Simulation):
                 idx += 1
 
         return time_partition, infection_time_series_group_dict, exposed_time_series_group_dict, recovered_time_series_group_dict
-
 
     def draw_event_class(self):
         partition_end_markers = {}

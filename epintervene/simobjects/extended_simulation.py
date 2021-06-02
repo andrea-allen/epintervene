@@ -252,8 +252,8 @@ class RingInterventionSim(simulation.Simulation):
 
 
 class AbsoluteTimeNetworkSwitchSim(simulation.Simulation):
-    def __init__(self, N, A=None, adjlist=None, max_unitless_sim_time=1000000, membership_groups=None, node_memberships=None):
-        super().__init__(N=N, adj_matrix=A, adj_list=adjlist, max_unitless_sim_time=max_unitless_sim_time, membership_groups=membership_groups,
+    def __init__(self, N, adjlist=None, max_unitless_sim_time=1000000, membership_groups=None, node_memberships=None):
+        super().__init__(N=N, adj_list=adjlist, max_unitless_sim_time=max_unitless_sim_time, membership_groups=membership_groups,
                          node_memberships=node_memberships)
         self.A_modified = None
         self.adjlist_modified = None
@@ -264,22 +264,23 @@ class AbsoluteTimeNetworkSwitchSim(simulation.Simulation):
         self.new_Gamma = None
         self.use_uniform_rate = True
 
-    def configure_intervention(self,  intervention_time, new_adjacency_matrix=None, new_adjlist=None,Beta=None, Gamma=None):
+    def configure_intervention(self,  intervention_time, new_adjlist=None,new_beta=None, new_gamma=None):
         self.adjlist_modified = new_adjlist
-        self.A_modified = new_adjacency_matrix
+        # self.A_modified = new_adjacency_matrix
         self.intervention_time = intervention_time
-        self.new_Beta = Beta
-        self.new_Gamma = Gamma
+        self.new_Beta = new_beta
+        self.new_Gamma = new_gamma
 
     def simtype(self):
         print('I am a simulation class of type Absolute Time Network Intervention')
 
-    def run_sim(self, with_memberships=False, use_uniform_rate=True, wait_for_recovery=False):
-        self.use_uniform_rate = use_uniform_rate
+    def run_sim(self, with_memberships=False, uniform_rate=True, wait_for_recovery=False, visualize=False,
+                viz_graph=None, viz_pos=None, p_zero=None, kill_by=None, record_active_gen_sizes=False):
+        self.use_uniform_rate = uniform_rate
         if with_memberships: self.track_memberships = True
         if self.track_memberships:
             self._init_membership_state_time_series()
-        self._initialize_patient_zero()
+        self._initialize_patient_zero(label=p_zero)
         while self._current_sim_time < self.total_sim_time:
             if not self.intervened:
                 if self._current_sim_time > self.intervention_time:
@@ -287,31 +288,28 @@ class AbsoluteTimeNetworkSwitchSim(simulation.Simulation):
                     self.time_of_intervention = self._current_sim_time
                     self.intervened = True
             # Run one step
-            self._single_step(uniform_rate=self.use_uniform_rate)
+            self._single_step(uniform_rate=uniform_rate, visualize=visualize, viz_graph=viz_graph)
 
             self._total_num_timesteps += 1
-            if len(self._potential_IS_events._event_list) == 0:
+            if self._current_number_IS_events == 0:
                 if not wait_for_recovery:
                     break
-                elif len(self._current_infected_nodes) == 0:
+                elif len(self._recovery_events) == 0:
+                    break
+            if kill_by is not None and self._highest_gen >= kill_by:
+                should_quit = self._check_active_gens(kill_by)
+                if should_quit:
                     break
 
     def intervene(self):
-        # need to re-size Beta and Gamma in case the network size has changed
         print('Modifying network')
-        self._A = self.A_modified
         if self.adjlist_modified is not None:
             self.set_adjlist(self.adjlist_modified)
         if self.new_Gamma is not None and self.new_Beta is not None:
-            super().add_infection_event_rates(self.new_Beta)
-            super().add_recover_event_rates(self.new_Gamma)
-        self._prune_IS_edges()
-        ## Need to clear the list and re-start the IS list and the current in/out degree dictionaries
-        current_infected_nodes = list(node.get_left_node() for node in self._potential_IS_events._event_list)
-        unique_current = []
-        new_N = len(self._adjlist)
-        for node in current_infected_nodes:
-            if node.get_label() not in unique_current:
-                if node.get_label() < new_N:
-                    self._add_IS_events(node)
-                    unique_current.append(node.get_label())
+            super().set_uniform_beta(self.new_Beta)
+            super().set_uniform_gamma(self.new_Gamma)
+        self._reset_node_states()
+        for node_key in list(self._active_node_dict.keys()):
+            node = self._active_node_dict[node_key]
+            if node.get_state() == nodestate.NodeState.INFECTED:
+                self._add_IS_events(node)
