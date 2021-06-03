@@ -144,13 +144,27 @@ class NetworkBuilder:
 
         corrected_adjlist = list(list() for i in range(len(adjlist)))
         for entry in adjlist:
-            corrected_adjlist[entry[0]] = entry
+            try:
+                corrected_adjlist[entry[0]] = entry
+            except IndexError:
+                for i in range(entry[0]-len(adjlist) + 1):
+                    corrected_adjlist.append(list())
+                corrected_adjlist[entry[0]] = entry
+                print(entry)
 
         adjlist = corrected_adjlist
         # make adjlist symmetric:
         len_adj = len(adjlist)
+        current_source = 0
         for row in adjlist:
-            source = row[0]
+            try:
+                source = row[0]
+                current_source += 1
+            except IndexError:
+                row.append(current_source)
+                source = row[0]
+                current_source += 1
+                print(row)
             if len(row) > 1:
                 for target in row[1:]:
                     if sum([1 for entry in row if entry==target]) > 1:
