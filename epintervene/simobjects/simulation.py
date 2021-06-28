@@ -107,7 +107,10 @@ class Simulation:
 
     def _initialize_patient_zero(self, label=None):
         if label is None:
-            p_zero_idx = random.randint(0, self._N - 1)
+            try:
+                p_zero_idx = random.randint(0, self._N - 1)
+            except ValueError:
+                print(self._N)
         elif label is not None:
             p_zero_idx = label
         if self._uniform_gamma is None:

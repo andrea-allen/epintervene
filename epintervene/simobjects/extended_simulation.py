@@ -75,11 +75,6 @@ class UniversalInterventionSim(simulation.Simulation):
 
 
 class RandomInterventionSim(simulation.Simulation):
-    # TODO need to find new algorithm for random proportion vaccinated
-    # # likely can just do some labeling algorithm in a dictionary form with the label
-    # # of the node, such that if that node is becoming infected or infecting then it'll have a
-    # # different rate. That being said, probably need to put them in another class for rate purposes
-    # # so as to correctly determine the waiting time until the next event...
     def __init__(self, N, adjlist=None, max_unitless_sim_time=1000000, membership_groups=None, node_memberships=None):
         super().__init__(N=N, adj_list=adjlist, max_unitless_sim_time=max_unitless_sim_time, membership_groups=membership_groups,
                          node_memberships=node_memberships)
@@ -98,7 +93,8 @@ class RandomInterventionSim(simulation.Simulation):
         self.beta_redux = beta_redux
         self.proportion_reduced = proportion_reduced
 
-    def run_sim(self, with_memberships=False, uniform_rate=True, wait_for_recovery=False):
+    def run_sim(self, with_memberships=False, uniform_rate=True, wait_for_recovery=False, visualize=False,
+                viz_graph=None, viz_pos=None, p_zero=None, kill_by=None, record_active_gen_sizes=False):
         self.use_uniform_rate = uniform_rate
         if with_memberships: self.track_memberships = True
         self.use_uniform_rate = uniform_rate
@@ -112,19 +108,24 @@ class RandomInterventionSim(simulation.Simulation):
                     self.time_of_intervention = self._current_sim_time
                     self.intervened = True
             # Run one step
-            self._single_step(uniform_rate=self.use_uniform_rate)
+            self._single_step(uniform_rate=uniform_rate, visualize=visualize, viz_graph=viz_graph, viz_pos=viz_pos,
+                              record_active_gen_sizes=record_active_gen_sizes)
 
             self._total_num_timesteps += 1
-            if len(self._potential_IS_events._event_list) == 0:
+            if self._current_number_IS_events == 0:
                 if not wait_for_recovery:
                     break
-                elif len(self._current_infected_nodes) == 0:
+                elif len(self._recovery_events) == 0:
+                    break
+            if kill_by is not None and self._highest_gen >= kill_by:
+                should_quit = self._check_active_gens(kill_by)
+                if should_quit:
                     break
 
-    def intervene(self, reduce_current_edges=False):
+    def intervene(self):
         print('intervening')
         if self._N == 0:
-            self._N = len(self._A[0])
+            self._N = len(self._adjlist)
         frac_of_network = self.proportion_reduced * self._N
         how_many = 0
         if frac_of_network > 1:
@@ -149,15 +150,10 @@ class RandomInterventionSim(simulation.Simulation):
                         # self._Beta[node_label] = np.full(N, self.beta_redux)
                         # self._Beta[:, node_label] = np.full(N, self.beta_redux).T
                     self._update_IS_events(recovery_event=existing_node)
-        # change event rate for each existing edge pair
-        if reduce_current_edges:
-            for edge in self._potential_IS_events._event_list:
-                edge.set_event_rate(self._Beta[edge.get_left_node().get_label()][edge.get_right_node().get_label()])
-
 
 class RandomRolloutSimulation(simulation.Simulation):
-    def __init__(self, N, adjmatrix=None, adjlist=None, max_unitless_sim_time=1000000, membership_groups=None, node_memberships=None):
-        super().__init__(N=N, adj_matrix=adjmatrix, adj_list=adjlist, max_unitless_sim_time=max_unitless_sim_time, membership_groups=membership_groups,
+    def __init__(self, N, adjlist=None, max_unitless_sim_time=1000000, membership_groups=None, node_memberships=None):
+        super().__init__(N=N, adj_list=adjlist, max_unitless_sim_time=max_unitless_sim_time, membership_groups=membership_groups,
                          node_memberships=node_memberships)
         self.intervention_gen_list = None
         self.beta_redux_list = None
@@ -177,7 +173,8 @@ class RandomRolloutSimulation(simulation.Simulation):
         for i in range(len(intervention_gen_list)):
             self.intervened_status_list.append(False)
 
-    def run_sim(self, with_memberships=False, uniform_rate=True, wait_for_recovery=False):
+    def run_sim(self, with_memberships=False, uniform_rate=True, wait_for_recovery=False, visualize=False,
+                viz_graph=None, viz_pos=None, p_zero=None, kill_by=None, record_active_gen_sizes=False):
         self.use_uniform_rate = uniform_rate
         if with_memberships: self.track_memberships = True
         self.use_uniform_rate = uniform_rate
@@ -192,17 +189,22 @@ class RandomRolloutSimulation(simulation.Simulation):
                         self.time_of_intervention_list.append(self._current_sim_time)
                         self.intervened_status_list[self.next_up_intervention_entry] = True
                         self.next_up_intervention_entry += 1
-                # Run one step
-            self._single_step(uniform_rate=self.use_uniform_rate)
+            # Run one step
+            self._single_step(uniform_rate=uniform_rate, visualize=visualize, viz_graph=viz_graph, viz_pos=viz_pos,
+                              record_active_gen_sizes=record_active_gen_sizes)
 
             self._total_num_timesteps += 1
-            if len(self._potential_IS_events._event_list) == 0:
+            if self._current_number_IS_events == 0:
                 if not wait_for_recovery:
                     break
-                elif len(self._current_infected_nodes) == 0:
+                elif len(self._recovery_events) == 0:
+                    break
+            if kill_by is not None and self._highest_gen >= kill_by:
+                should_quit = self._check_active_gens(kill_by)
+                if should_quit:
                     break
 
-    def intervene(self, intervention_entry, reduce_current_edges=False):
+    def intervene(self, intervention_entry):
         print('intervening')
         if self._N == 0:
             self._N = len(self._A[0])
@@ -233,9 +235,6 @@ class RandomRolloutSimulation(simulation.Simulation):
                             # self._Beta[node_label] = np.full(self._N, self.beta_redux_list[intervention_entry])
                             # self._Beta[:, node_label] = np.full(self._N, self.beta_redux_list[intervention_entry]).T
                             self._update_IS_events(recovery_event=existing_node)
-                            if reduce_current_edges:
-                                for edge in self._potential_IS_events._event_list:
-                                    edge.set_event_rate(self._Beta[edge.get_left_node().get_label()][edge.get_right_node().get_label()])
         return vaccinated_nodes
 
 
