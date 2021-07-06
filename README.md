@@ -231,3 +231,11 @@ Results of an SIR simulation (single run) with membership groups:
 ![alt text](https://github.com/andrea-allen/epintervene/blob/main/docs/SEIR_total.png?raw=true)
 
 ![alt text](https://github.com/andrea-allen/epintervene/blob/main/docs/SEIR_network.png?raw=true)
+
+## Citing and using this code
+
+If using all or any part of this code base in a published or non-published work, please cite as:
+
+Cite this work as:
+
+Andrea Allen. (2021, July 6). andrea-allen/epintervene: Initial Release (Version v1.0.0). Zenodo. http://doi.org/10.5281/zenodo.5076515
