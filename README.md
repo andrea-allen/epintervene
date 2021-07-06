@@ -1,10 +1,19 @@
 # EpIntervene
-Custom simulation framework in Python for Event-Driven simulation of epidemics on networks. What makes this framework unique is its functionality for introducing interventions in the middle of epidemic simulations, its customizable event classes, and its book-keeping of generations of infection.
+EpIntervene is a custom simulation framework in Python for Event-Driven simulation of epidemics on networks. 
+What makes this framework unique is its functionality for introducing interventions in the middle of epidemic simulations, its customizable event classes, and its book-keeping of generations of infection.
 
-EpIntervene is still a work in progress. Please check back later.
-Currently still being updated to reflect current changes!!
+EpIntervene is still a work in progress. The current version of the software is available for installation
+on the TestPyPi index, available [here](https://test.pypi.org/project/epintervene/), and works just like
+a standard Python package, with a recommended `pip` install in an `anacondas` virtual environment.
+
+This page will be updated when EpIntervene is available on the main PyPi index. 
 
 ## Usage
+For quick examples on how to use EpIntervene, check out the `examples/sandbox.py` file, [here.](https://github.com/andrea-allen/epintervene/blob/main/examples/sandbox.py)
+For an interactive tool to let you explore what the results of using EpIntervene would look like,
+check out my [Streamlit app](https://share.streamlit.io/andrea-allen/epintervene-interactive/main/app.py)
+with source code found [here.](https://github.com/andrea-allen/epintervene-interactive)
+
 This package and its current capabilities support SIR or SEIR model simulations.
 The two primary Simulation objects can be found in the classes `epintervene.simobjects.simulation.Simulation`
 and `epintervene.simobjects.simulation.SimulationSEIR`. 
