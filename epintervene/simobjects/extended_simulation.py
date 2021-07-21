@@ -6,7 +6,8 @@ from epintervene.simobjects import nodestate
 
 class UniversalInterventionSim(simulation.Simulation):
     def __init__(self, N, adjlist=None, max_unitless_sim_time=1000000, membership_groups=None, node_memberships=None):
-        super().__init__(N=N, adj_list=adjlist, max_unitless_sim_time=max_unitless_sim_time, membership_groups=membership_groups,
+        super().__init__(N=N, adj_list=adjlist, max_unitless_sim_time=max_unitless_sim_time,
+                         membership_groups=membership_groups,
                          node_memberships=node_memberships)
         self.intervention_gen = None
         self.beta_redux = None
@@ -76,7 +77,8 @@ class UniversalInterventionSim(simulation.Simulation):
 
 class RandomInterventionSim(simulation.Simulation):
     def __init__(self, N, adjlist=None, max_unitless_sim_time=1000000, membership_groups=None, node_memberships=None):
-        super().__init__(N=N, adj_list=adjlist, max_unitless_sim_time=max_unitless_sim_time, membership_groups=membership_groups,
+        super().__init__(N=N, adj_list=adjlist, max_unitless_sim_time=max_unitless_sim_time,
+                         membership_groups=membership_groups,
                          node_memberships=node_memberships)
         self.intervention_gen = None
         self.beta_redux = None
@@ -151,9 +153,11 @@ class RandomInterventionSim(simulation.Simulation):
                         # self._Beta[:, node_label] = np.full(N, self.beta_redux).T
                     self._update_IS_events(recovery_event=existing_node)
 
+
 class RandomRolloutSimulation(simulation.Simulation):
     def __init__(self, N, adjlist=None, max_unitless_sim_time=1000000, membership_groups=None, node_memberships=None):
-        super().__init__(N=N, adj_list=adjlist, max_unitless_sim_time=max_unitless_sim_time, membership_groups=membership_groups,
+        super().__init__(N=N, adj_list=adjlist, max_unitless_sim_time=max_unitless_sim_time,
+                         membership_groups=membership_groups,
                          node_memberships=node_memberships)
         self.intervention_gen_list = None
         self.beta_redux_list = None
@@ -239,9 +243,92 @@ class RandomRolloutSimulation(simulation.Simulation):
 
 
 class TargetedInterventionSim(simulation.Simulation):
-    # TODO
+    def __init__(self, N, adjlist=None, max_unitless_sim_time=1000000, membership_groups=None, node_memberships=None):
+        super().__init__(N=N, adj_list=adjlist, max_unitless_sim_time=max_unitless_sim_time,
+                         membership_groups=membership_groups,
+                         node_memberships=node_memberships)
+        self.intervention_gen = None
+        self.beta_redux = None
+        self.proportion_reduced = None
+        self.intervened = False
+        self.time_of_intervention = max_unitless_sim_time
+        self.use_uniform_rate = True
+
     def simtype(self):
         print('I am a simulation class of type Targeted Intervention')
+
+    def configure_intervention(self, intervention_gen, beta_redux, proportion_reduced):
+        self.intervention_gen = intervention_gen
+        self.beta_redux = beta_redux
+        self.proportion_reduced = proportion_reduced
+
+    def run_sim(self, with_memberships=False, uniform_rate=True, wait_for_recovery=False, visualize=False,
+                viz_graph=None, viz_pos=None, p_zero=None, kill_by=None, record_active_gen_sizes=False):
+        self.use_uniform_rate = uniform_rate
+        if with_memberships: self.track_memberships = True
+        self.use_uniform_rate = uniform_rate
+        if self.track_memberships:
+            self._init_membership_state_time_series()
+        self._initialize_patient_zero()
+        while self._current_sim_time < self.total_sim_time:
+            if not self.intervened:
+                if self._highest_gen >= self.intervention_gen:
+                    self.intervene()
+                    self.time_of_intervention = self._current_sim_time
+                    self.intervened = True
+            # Run one step
+            self._single_step(uniform_rate=uniform_rate, visualize=visualize, viz_graph=viz_graph, viz_pos=viz_pos,
+                              record_active_gen_sizes=record_active_gen_sizes)
+
+            self._total_num_timesteps += 1
+            if self._current_number_IS_events == 0:
+                if not wait_for_recovery:
+                    break
+                elif len(self._recovery_events) == 0:
+                    break
+            if kill_by is not None and self._highest_gen >= kill_by:
+                should_quit = self._check_active_gens(kill_by)
+                if should_quit:
+                    break
+
+    def intervene(self):
+        print('intervening')
+        if self._N == 0:
+            self._N = len(self._adjlist)
+        frac_of_network = self.proportion_reduced * self._N
+        how_many = 0
+        if frac_of_network > 1:
+            how_many = int(np.round(frac_of_network, 0))
+
+        degrees = list([len(neighbor) - 1 for neighbor in self._adjlist])
+        degree_classes = {}
+        for i in range(len(degrees)):
+            degree = degrees[i]
+            try:
+                degree_classes[degree].append(i)
+            except KeyError:
+                degree_classes[degree] = [i]
+
+        keys_decreasing = np.sort(list(degree_classes.keys()))[::-1]
+        vaccine_set = []
+        for degree in keys_decreasing:
+            nodes = degree_classes[degree]
+            if len(vaccine_set) < how_many:
+                for node in nodes: vaccine_set.append(node)
+
+        for node_label in vaccine_set:
+            if self.use_uniform_rate:
+                candidate_node = network.Node(node_label, -1, None, self._uniform_gamma)
+            else:
+                candidate_node = network.Node(node_label, -1, None, self._Gamma[node_label])
+            if self.track_memberships:
+                candidate_node.set_membership(self._node_memberships[candidate_node.get_label()])
+            existing_node = self._existing_node(candidate_node)
+            if existing_node.get_state() != nodestate.NodeState.VACCINATED:
+                existing_node.vaccinate()
+                # self._Beta[node_label] = np.full(N, self.beta_redux)
+                # self._Beta[:, node_label] = np.full(N, self.beta_redux).T
+            self._update_IS_events(recovery_event=existing_node)
 
 
 class RingInterventionSim(simulation.Simulation):
@@ -252,7 +339,8 @@ class RingInterventionSim(simulation.Simulation):
 
 class AbsoluteTimeNetworkSwitchSim(simulation.Simulation):
     def __init__(self, N, adjlist=None, max_unitless_sim_time=1000000, membership_groups=None, node_memberships=None):
-        super().__init__(N=N, adj_list=adjlist, max_unitless_sim_time=max_unitless_sim_time, membership_groups=membership_groups,
+        super().__init__(N=N, adj_list=adjlist, max_unitless_sim_time=max_unitless_sim_time,
+                         membership_groups=membership_groups,
                          node_memberships=node_memberships)
         self.A_modified = None
         self.adjlist_modified = None
@@ -263,7 +351,7 @@ class AbsoluteTimeNetworkSwitchSim(simulation.Simulation):
         self.new_Gamma = None
         self.use_uniform_rate = True
 
-    def configure_intervention(self,  intervention_time, new_adjlist=None,new_beta=None, new_gamma=None):
+    def configure_intervention(self, intervention_time, new_adjlist=None, new_beta=None, new_gamma=None):
         self.adjlist_modified = new_adjlist
         # self.A_modified = new_adjacency_matrix
         self.intervention_time = intervention_time
