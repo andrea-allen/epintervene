@@ -1,3 +1,3 @@
 from epintervene.simobjects.simulation import Simulation, SimulationSEIR
-from epintervene.simobjects.extended_simulation import RandomRolloutSimulation, RandomInterventionSim, UniversalInterventionSim, AbsoluteTimeNetworkSwitchSim
+from epintervene.simobjects.extended_simulation import RandomRolloutSimulation, RandomInterventionSim, UniversalInterventionSim, AbsoluteTimeNetworkSwitchSim, TargetedInterventionSim, TargetedRolloutSimulation
 from epintervene.simobjects.network import NetworkBuilder, Node, Edge

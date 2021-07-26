@@ -340,6 +340,100 @@ class TargetedInterventionSim(simulation.Simulation):
         # print(f"Number of already infected nodes: {infct_hd_nodes}, which is {(infct_hd_nodes/how_many)} percent of the projected vacine proportion")
         # print(f"In total, {num_vaccinated} were vaccinated, out of a planned {how_many}")
 
+class TargetedRolloutSimulation(simulation.Simulation):
+    def __init__(self, N, adjlist=None, max_unitless_sim_time=1000000, membership_groups=None, node_memberships=None):
+        super().__init__(N=N, adj_list=adjlist, max_unitless_sim_time=max_unitless_sim_time,
+                         membership_groups=membership_groups,
+                         node_memberships=node_memberships)
+        self.intervention_gen_list = None
+        self.beta_redux_list = None
+        self.proportion_reduced_list = None
+        self.intervened_status_list = []
+        self.time_of_intervention_list = []
+        self.next_up_intervention_entry = 0
+        self.use_uniform_rate = True
+
+    def simtype(self):
+        print('Simulation class of type Multi intervention Targeted Intervention')
+
+    def configure_intervention(self, intervention_gen_list, beta_redux_list, proportion_reduced_list):
+        self.intervention_gen_list = intervention_gen_list
+        self.beta_redux_list = beta_redux_list
+        self.proportion_reduced_list = proportion_reduced_list
+        for i in range(len(intervention_gen_list)):
+            self.intervened_status_list.append(False)
+
+    def run_sim(self, with_memberships=False, uniform_rate=True, wait_for_recovery=False, visualize=False,
+                viz_graph=None, viz_pos=None, p_zero=None, kill_by=None, record_active_gen_sizes=False):
+        self.use_uniform_rate = uniform_rate
+        if with_memberships: self.track_memberships = True
+        self.use_uniform_rate = uniform_rate
+        if self.track_memberships:
+            self._init_membership_state_time_series()
+        self._initialize_patient_zero()
+        while self._current_sim_time < self.total_sim_time:
+            if self.next_up_intervention_entry < len(self.intervention_gen_list):
+                if not self.intervened_status_list[self.next_up_intervention_entry]:
+                    if self._highest_gen >= self.intervention_gen_list[self.next_up_intervention_entry]:
+                        self.intervene(self.next_up_intervention_entry)
+                        self.time_of_intervention_list.append(self._current_sim_time)
+                        self.intervened_status_list[self.next_up_intervention_entry] = True
+                        self.next_up_intervention_entry += 1
+            # Run one step
+            self._single_step(uniform_rate=uniform_rate, visualize=visualize, viz_graph=viz_graph, viz_pos=viz_pos,
+                              record_active_gen_sizes=record_active_gen_sizes)
+
+            self._total_num_timesteps += 1
+            if self._current_number_IS_events == 0:
+                if not wait_for_recovery:
+                    break
+                elif len(self._recovery_events) == 0:
+                    break
+            if kill_by is not None and self._highest_gen >= kill_by:
+                should_quit = self._check_active_gens(kill_by)
+                if should_quit:
+                    break
+
+    def intervene(self, intervention_entry):
+        print('intervening')
+        if self._N == 0:
+            self._N = len(self._adjlist)
+        frac_of_network = self.proportion_reduced_list[intervention_entry] * self._N
+        how_many = 0
+        if frac_of_network > 1:
+            how_many = int(np.round(frac_of_network, 0))
+
+        degrees = list([len(neighbor) - 1 for neighbor in self._adjlist])
+        degree_classes = {}
+        for i in range(len(degrees)):
+            degree = degrees[i]
+            try:
+                degree_classes[degree].append(i)
+            except KeyError:
+                degree_classes[degree] = [i]
+
+        keys_decreasing = np.sort(list(degree_classes.keys()))[::-1]
+
+        num_vaccinated = 0
+        infct_hd_nodes = 0
+        for degree in keys_decreasing:
+            current_node_group = degree_classes[degree] # To match analytical prediction, once a degree class is bumped up to meet the quota, the whole class is vaccinated
+            if num_vaccinated < how_many:
+                for node in current_node_group:
+                    if self.use_uniform_rate:
+                        candidate_node = network.Node(node, -1, None, self._uniform_gamma)
+                    else:
+                        candidate_node = network.Node(node, -1, None, self._Gamma[node])
+                    if self.track_memberships:
+                        candidate_node.set_membership(self._node_memberships[candidate_node.get_label()])
+                    existing_node = self._existing_node(candidate_node)
+                    if existing_node.get_state() != nodestate.NodeState.VACCINATED:
+                        if existing_node.get_state() != nodestate.NodeState.INFECTED: #Do not vaccinate currently infected nodes
+                            existing_node.vaccinate()
+                            num_vaccinated += 1 #Only counted if high degree nodes are successfully vaccinated
+                        else:
+                            infct_hd_nodes += 1 #Counts high-degree currently infected nodes
+                    self._update_IS_events(recovery_event=existing_node)
 
 class RingInterventionSim(simulation.Simulation):
     # TODO
