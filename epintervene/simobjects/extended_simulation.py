@@ -146,12 +146,15 @@ class RandomInterventionSim(simulation.Simulation):
                         candidate_node.set_membership(self._node_memberships[candidate_node.get_label()])
                     existing_node = self._existing_node(candidate_node)
                     if existing_node.get_state() != nodestate.NodeState.VACCINATED:
-                        existing_node.vaccinate()
-                        vaccinated_nodes.append(existing_node)
-                        vax_labels.append(node_label)
+                        if existing_node.get_state() != nodestate.NodeState.INFECTED:
+                            existing_node.vaccinate()
+                            vaccinated_nodes.append(existing_node)
+                            vax_labels.append(node_label)
                         # self._Beta[node_label] = np.full(N, self.beta_redux)
                         # self._Beta[:, node_label] = np.full(N, self.beta_redux).T
-                    self._update_IS_events(recovery_event=existing_node)
+                            self._update_IS_events(recovery_event=existing_node)
+                        # else:
+                        #     print("I was already infected")
 
 
 class RandomRolloutSimulation(simulation.Simulation):
@@ -233,12 +236,15 @@ class RandomRolloutSimulation(simulation.Simulation):
                         # all the nodes become active
                         if existing_node.get_state() != nodestate.NodeState.VACCINATED:
                             # these should also be added to the active nodes
-                            existing_node.vaccinate()
-                            vaccinated_nodes.append(existing_node)
-                            vax_labels.append(node_label)
+                            if existing_node.get_state() != nodestate.NodeState.INFECTED:
+                                existing_node.vaccinate()
+                                vaccinated_nodes.append(existing_node)
+                                vax_labels.append(node_label)
                             # self._Beta[node_label] = np.full(self._N, self.beta_redux_list[intervention_entry])
                             # self._Beta[:, node_label] = np.full(self._N, self.beta_redux_list[intervention_entry]).T
-                            self._update_IS_events(recovery_event=existing_node)
+                                self._update_IS_events(recovery_event=existing_node)
+                            # else:
+                            #     print("I was already infected")
         return vaccinated_nodes
 
 
@@ -310,25 +316,29 @@ class TargetedInterventionSim(simulation.Simulation):
                 degree_classes[degree] = [i]
 
         keys_decreasing = np.sort(list(degree_classes.keys()))[::-1]
-        vaccine_set = []
-        for degree in keys_decreasing:
-            nodes = degree_classes[degree]
-            if len(vaccine_set) < how_many:
-                for node in nodes: vaccine_set.append(node)
 
-        for node_label in vaccine_set:
-            if self.use_uniform_rate:
-                candidate_node = network.Node(node_label, -1, None, self._uniform_gamma)
-            else:
-                candidate_node = network.Node(node_label, -1, None, self._Gamma[node_label])
-            if self.track_memberships:
-                candidate_node.set_membership(self._node_memberships[candidate_node.get_label()])
-            existing_node = self._existing_node(candidate_node)
-            if existing_node.get_state() != nodestate.NodeState.VACCINATED:
-                existing_node.vaccinate()
-                # self._Beta[node_label] = np.full(N, self.beta_redux)
-                # self._Beta[:, node_label] = np.full(N, self.beta_redux).T
-            self._update_IS_events(recovery_event=existing_node)
+        num_vaccinated = 0
+        infct_hd_nodes = 0
+        for degree in keys_decreasing:
+            current_node_group = degree_classes[degree] # To match analytical prediction, once a degree class is bumped up to meet the quota, the whole class is vaccinated
+            if num_vaccinated < how_many:
+                for node in current_node_group:
+                    if self.use_uniform_rate:
+                        candidate_node = network.Node(node, -1, None, self._uniform_gamma)
+                    else:
+                        candidate_node = network.Node(node, -1, None, self._Gamma[node])
+                    if self.track_memberships:
+                        candidate_node.set_membership(self._node_memberships[candidate_node.get_label()])
+                    existing_node = self._existing_node(candidate_node)
+                    if existing_node.get_state() != nodestate.NodeState.VACCINATED:
+                        if existing_node.get_state() != nodestate.NodeState.INFECTED: #Do not vaccinate currently infected nodes
+                            existing_node.vaccinate()
+                            num_vaccinated += 1 #Only counted if high degree nodes are successfully vaccinated
+                        else:
+                            infct_hd_nodes += 1 #Counts high-degree currently infected nodes
+                    self._update_IS_events(recovery_event=existing_node)
+        # print(f"Number of already infected nodes: {infct_hd_nodes}, which is {(infct_hd_nodes/how_many)} percent of the projected vacine proportion")
+        # print(f"In total, {num_vaccinated} were vaccinated, out of a planned {how_many}")
 
 
 class RingInterventionSim(simulation.Simulation):

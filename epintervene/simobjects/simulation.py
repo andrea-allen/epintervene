@@ -1,8 +1,11 @@
-import numpy as np
-from epintervene.simobjects import network
-from epintervene.simobjects import eventtype
-from epintervene.simobjects import nodestate
 import random
+
+import numpy as np
+
+from epintervene.simobjects import eventtype
+from epintervene.simobjects import network
+from epintervene.simobjects import nodestate
+
 
 class Simulation:
     """
