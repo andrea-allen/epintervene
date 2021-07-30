@@ -245,9 +245,9 @@ class Simulation:
                 self._current_number_recovery_events -= 1
                 self._update_IS_events(recovery_event=recovery_event)
                 self._recovered_nodes.append(recovery_event)
-                self._current_active_gen_sizes[
-                    recovery_event.get_generation()] -= 1  # One less active member of the generation
                 try:
+                    self._current_active_gen_sizes[
+                        recovery_event.get_generation()] -= 1  # One less active member of the generation
                     self._gen_collection_active[recovery_event.get_generation()].remove(recovery_event.get_label())
                 except ValueError:
                     pass
