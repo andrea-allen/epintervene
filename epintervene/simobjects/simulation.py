@@ -231,8 +231,11 @@ class Simulation:
                     self._generational_emergence[self._highest_gen] = self._current_sim_time
                     self.active_gen_ts.append(self.active_gen_ts[-1] + 1)  # Active gens increases by one
                     self.total_gen_ts.append(self.total_gen_ts[-1] + 1)  # Total gens increases by one
-                    self._current_active_gen_sizes[
-                        infection_event.get_right_node().get_generation()] += 1  # One more active member of the generation
+                    try:
+                        self._current_active_gen_sizes[
+                            infection_event.get_right_node().get_generation()] += 1  # One more active member of the generation
+                    except IndexError:
+                        pass # Don't record generations larger than 100
                 self._update_IS_events(infection_IS_event=infection_event)
                 self._add_IS_events(infection_event.get_right_node())
             if event_class == eventtype.EventType.RECOVER:
