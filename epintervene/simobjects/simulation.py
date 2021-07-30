@@ -220,8 +220,11 @@ class Simulation:
                         infection_event.get_right_node().get_label())
                     self.active_gen_ts.append(self.active_gen_ts[-1])  # Active gens stays the same this round
                     self.total_gen_ts.append(self.total_gen_ts[-1])  # Total gens stays the same this round
-                    self._current_active_gen_sizes[
-                        infection_event.get_right_node().get_generation()] += 1  # One more active member of the generation
+                    try:
+                        self._current_active_gen_sizes[
+                            infection_event.get_right_node().get_generation()] += 1  # One more active member of the generation
+                    except IndexError:
+                        pass # Don't record gens larger than 100
                 except KeyError:  # If they are the first member of a new generation, book keeping happens here
                     self._gen_collection[infection_event.get_right_node().get_generation()] = [
                         infection_event.get_right_node().get_label()]
@@ -248,6 +251,9 @@ class Simulation:
                 try:
                     self._current_active_gen_sizes[
                         recovery_event.get_generation()] -= 1  # One less active member of the generation
+                except IndexError:
+                    pass # Don't record gens greater than 100
+                try:
                     self._gen_collection_active[recovery_event.get_generation()].remove(recovery_event.get_label())
                 except ValueError:
                     pass
