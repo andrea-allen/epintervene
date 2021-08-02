@@ -2,6 +2,7 @@ from epintervene.simobjects import simulation
 import numpy as np
 from epintervene.simobjects import network
 from epintervene.simobjects import nodestate
+import random
 
 
 class UniversalInterventionSim(simulation.Simulation):
@@ -134,15 +135,7 @@ class RandomInterventionSim(simulation.Simulation):
             how_many = int(np.round(frac_of_network, 0))
         vaccinated_nodes = []
         vax_labels = []
-        eligible_nodes = list(np.arange(self._N))
-        len_eligible = len(eligible_nodes)
-        random_set = []
-        for i in range(how_many):
-            idx = np.random.randint(0, len_eligible)
-            n = eligible_nodes[idx]
-            random_set.append(n)
-            eligible_nodes.remove(eligible_nodes[idx])
-            len_eligible -= 1
+        random_set = random.sample(list(np.arange(self._N)), how_many)
         for node_label in random_set:
             if len(vax_labels) < how_many:
                 if node_label not in vax_labels:
