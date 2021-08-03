@@ -129,14 +129,9 @@ class RandomInterventionSim(simulation.Simulation):
         print('intervening')
         if self._N == 0:
             self._N = len(self._adjlist)
-        frac_of_network = self.proportion_reduced * self._N
-        how_many = 0
-        if frac_of_network > 1:
-            how_many = int(np.round(frac_of_network, 0))
         vaccinated_nodes = []
         vax_labels = []
-        # random_set = random.sample(list(np.arange(self._N)), how_many)
-        random_set = list(np.where(np.random.uniform(0, 1, self._N) <= frac_of_network)[0])
+        random_set = list(np.where(np.random.uniform(0, 1, self._N) <= self.proportion_reduced)[0])
         for node_label in random_set:
             if self.use_uniform_rate:
                 candidate_node = network.Node(node_label, -1, None, self._uniform_gamma)
@@ -153,8 +148,6 @@ class RandomInterventionSim(simulation.Simulation):
                 # self._Beta[node_label] = np.full(N, self.beta_redux)
                 # self._Beta[:, node_label] = np.full(N, self.beta_redux).T
                     self._update_IS_events(recovery_event=existing_node)
-                # else:
-                #     print("I was already infected")
 
 
 class RandomRolloutSimulation(simulation.Simulation):
