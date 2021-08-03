@@ -204,43 +204,44 @@ class Simulation:
         if self.track_memberships:
             self._record_membership_states()
 
-        if event_class is not None:
+        if event_class is not None: #TODO is this infecting vax'ed people? start here tuesday
             if event_class == eventtype.EventType.INFECTEDSUSCEPTIBLE:
                 infection_event = next_event
-                infection_event.infect()
-                self._recovery_events[infection_event.get_right_node().get_label()] = infection_event.get_right_node()
-                self._recovery_events_keys.append(infection_event.get_right_node().get_label())
-                self._current_number_recovery_events += 1
-                self._max_num_recovery_events += 1
+                if next_event.get_right_node().get_state()==nodestate.NodeState.SUSCEPTIBLE:
+                    infection_event.infect()
+                    self._recovery_events[infection_event.get_right_node().get_label()] = infection_event.get_right_node()
+                    self._recovery_events_keys.append(infection_event.get_right_node().get_label())
+                    self._current_number_recovery_events += 1
+                    self._max_num_recovery_events += 1
 
-                try:  # If they are a member of an existing generation, bookkeeping will happen here:
-                    self._gen_collection[infection_event.get_right_node().get_generation()].append(
-                        infection_event.get_right_node().get_label())
-                    self._gen_collection_active[infection_event.get_right_node().get_generation()].append(
-                        infection_event.get_right_node().get_label())
-                    self.active_gen_ts.append(self.active_gen_ts[-1])  # Active gens stays the same this round
-                    self.total_gen_ts.append(self.total_gen_ts[-1])  # Total gens stays the same this round
-                    try:
-                        self._current_active_gen_sizes[
-                            infection_event.get_right_node().get_generation()] += 1  # One more active member of the generation
-                    except IndexError:
-                        pass # Don't record gens larger than 100
-                except KeyError:  # If they are the first member of a new generation, book keeping happens here
-                    self._gen_collection[infection_event.get_right_node().get_generation()] = [
-                        infection_event.get_right_node().get_label()]
-                    self._gen_collection_active[infection_event.get_right_node().get_generation()] = [
-                        infection_event.get_right_node().get_label()]
-                    self._highest_gen += 1
-                    self._generational_emergence[self._highest_gen] = self._current_sim_time
-                    self.active_gen_ts.append(self.active_gen_ts[-1] + 1)  # Active gens increases by one
-                    self.total_gen_ts.append(self.total_gen_ts[-1] + 1)  # Total gens increases by one
-                    try:
-                        self._current_active_gen_sizes[
-                            infection_event.get_right_node().get_generation()] += 1  # One more active member of the generation
-                    except IndexError:
-                        pass # Don't record generations larger than 100
-                self._update_IS_events(infection_IS_event=infection_event)
-                self._add_IS_events(infection_event.get_right_node())
+                    try:  # If they are a member of an existing generation, bookkeeping will happen here:
+                        self._gen_collection[infection_event.get_right_node().get_generation()].append(
+                            infection_event.get_right_node().get_label())
+                        self._gen_collection_active[infection_event.get_right_node().get_generation()].append(
+                            infection_event.get_right_node().get_label())
+                        self.active_gen_ts.append(self.active_gen_ts[-1])  # Active gens stays the same this round
+                        self.total_gen_ts.append(self.total_gen_ts[-1])  # Total gens stays the same this round
+                        try:
+                            self._current_active_gen_sizes[
+                                infection_event.get_right_node().get_generation()] += 1  # One more active member of the generation
+                        except IndexError:
+                            pass # Don't record gens larger than 100
+                    except KeyError:  # If they are the first member of a new generation, book keeping happens here
+                        self._gen_collection[infection_event.get_right_node().get_generation()] = [
+                            infection_event.get_right_node().get_label()]
+                        self._gen_collection_active[infection_event.get_right_node().get_generation()] = [
+                            infection_event.get_right_node().get_label()]
+                        self._highest_gen += 1
+                        self._generational_emergence[self._highest_gen] = self._current_sim_time
+                        self.active_gen_ts.append(self.active_gen_ts[-1] + 1)  # Active gens increases by one
+                        self.total_gen_ts.append(self.total_gen_ts[-1] + 1)  # Total gens increases by one
+                        try:
+                            self._current_active_gen_sizes[
+                                infection_event.get_right_node().get_generation()] += 1  # One more active member of the generation
+                        except IndexError:
+                            pass # Don't record generations larger than 100
+                    self._update_IS_events(infection_IS_event=infection_event)
+                    self._add_IS_events(infection_event.get_right_node())
             if event_class == eventtype.EventType.RECOVER:
                 recovery_event = next_event
                 recovery_event.recover()
