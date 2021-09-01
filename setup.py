@@ -1,9 +1,9 @@
 from setuptools import find_packages
 import setuptools
 
-VERSION = '0.0.43'
+VERSION = '0.1.0'
 DESCRIPTION = 'EpIntervene Simulation Package'
-LONG_DESCRIPTION = 'Working version of EpIntervene package, for simulating SIR and SEIR Epidemics with or without interventions'
+LONG_DESCRIPTION = 'EpIntervene package for simulating SIR and SEIR Epidemics with or without interventions'
 
 with open("README.md", "r", encoding="utf-8") as fh:
     long_description = fh.read()

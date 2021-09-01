@@ -64,6 +64,7 @@ class Simulation:
         # In order to compute things to most efficiently, need to have the leading row of active gens counts and then just append or remove
         #  from that count in order not to have to compute the size at every generation
         self._current_active_gen_sizes = np.zeros(100)
+        self._gen_sizes_function_of_gen = []
 
     def get_gen_collection(self):
         return self._gen_collection
@@ -136,6 +137,7 @@ class Simulation:
         self.active_gen_ts.append(1)
         self.total_gen_ts.append(1)
         self._current_active_gen_sizes[0] = 1
+        self._gen_sizes_function_of_gen.append(list(self._current_active_gen_sizes))
         self._recovery_events[p_zero_idx] = patient_zero
         self._recovery_events_keys.append(p_zero_idx)
         self._current_number_recovery_events = 1
@@ -240,6 +242,7 @@ class Simulation:
                                 infection_event.get_right_node().get_generation()] += 1  # One more active member of the generation
                         except IndexError:
                             pass # Don't record generations larger than 100
+                        self._gen_sizes_function_of_gen.append(list(self._current_active_gen_sizes))
                     self._update_IS_events(infection_IS_event=infection_event)
                     self._add_IS_events(infection_event.get_right_node())
             if event_class == eventtype.EventType.RECOVER:
@@ -448,7 +451,7 @@ class Simulation:
         return infection_time_srs_by_gen
 
     def tabulate_continuous_time(self, time_buckets=100, custom_range=False, custom_t_lim=100, active_gen_info=False,
-                                 active_gen_sizes=False):
+                                 active_gen_sizes=False, active_gen_by_gen=False):
         """
         Compile the results from the simulation as a time series.
 
@@ -495,6 +498,9 @@ class Simulation:
                         active_gen_sizes_ts[idx:] = real_time_gen_sizes
                     found_soonest = True
                 idx += 1
+        if active_gen_info and active_gen_sizes and active_gen_by_gen:
+            return time_partition, infection_time_series, recover_time_series, \
+                   active_gen_time_series, total_gen_time_series, active_gen_sizes_ts, np.array(self._gen_sizes_function_of_gen)
         if active_gen_info and active_gen_sizes:
             return time_partition, infection_time_series, recover_time_series, \
                    active_gen_time_series, total_gen_time_series, active_gen_sizes_ts

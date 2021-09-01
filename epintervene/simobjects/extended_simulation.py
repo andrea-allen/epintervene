@@ -388,7 +388,6 @@ class TargetedRolloutSimulation(simulation.Simulation):
                     break
 
     def intervene(self, intervention_entry):
-        print('intervening')
         if self._N == 0:
             self._N = len(self._adjlist)
         frac_of_network = self.proportion_reduced_list[intervention_entry] * self._N
@@ -486,7 +485,6 @@ class AbsoluteTimeNetworkSwitchSim(simulation.Simulation):
                     break
 
     def intervene(self):
-        print('Modifying network')
         if self.adjlist_modified is not None:
             self.set_adjlist(self.adjlist_modified)
         if self.new_Gamma is not None and self.new_Beta is not None:
