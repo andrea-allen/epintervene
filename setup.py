@@ -1,7 +1,7 @@
 from setuptools import find_packages
 import setuptools
 
-VERSION = '0.1.1'
+VERSION = '1.0.1'
 DESCRIPTION = 'EpIntervene Simulation Package'
 LONG_DESCRIPTION = 'EpIntervene package for simulating SIR and SEIR Epidemics with or without interventions'
 
