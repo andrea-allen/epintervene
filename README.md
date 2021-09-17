@@ -253,4 +253,4 @@ If using all or any part of this code base in a published or non-published work,
 
 Cite this work as:
 
-Andrea Allen. (2021, July 6). andrea-allen/epintervene: Initial Release (Version v1.0.0). Zenodo. http://doi.org/10.5281/zenodo.5076515
+Andrea Allen. (2021). andrea-allen/epintervene: v1.0.3 EpIntervene Release (v1.0.3). Zenodo. https://doi.org/10.5281/zenodo.5514401
