@@ -3,20 +3,20 @@ EpIntervene is a custom simulation framework in Python for Event-Driven simulati
 What makes this framework unique is its functionality for introducing interventions in the middle of epidemic simulations, its customizable event classes, and its book-keeping of generations of infection.
 
 EpIntervene is still a work in progress. The current version of the software is available for installation
-on the TestPyPi index, available [here](https://test.pypi.org/project/epintervene/), and works just like
-a standard Python package, with a recommended `pip` install in an `anacondas` virtual environment.
-
-This page will be updated when EpIntervene is available on the main PyPi index. 
+on the PyPi index, available [here](https://pypi.org/project/epintervene/), available via a recommended `pip` install in an `anacondas` virtual environment. 
 
 ## Usage
-For quick examples on how to use EpIntervene, check out the `examples/sandbox.py` file, [here.](https://github.com/andrea-allen/epintervene/blob/main/examples/sandbox.py)
+For quick examples on how to use EpIntervene, we recommend walking through the examples in the `examples/sandbox.py` file [here](https://github.com/andrea-allen/epintervene/blob/main/examples/sandbox.py)
+for standard demonstrations on SIR and SEIR epidemics. For the intervention features, you can walk through the examples
+in `examples/interventions_sandbox.py` found [here.](https://github.com/andrea-allen/epintervene/blob/main/examples/interventions_sandbox.py)
 For an interactive tool to let you explore what the results of using EpIntervene would look like,
 check out my [Streamlit app](https://share.streamlit.io/andrea-allen/epintervene-interactive/main/app.py)
 with source code found [here.](https://github.com/andrea-allen/epintervene-interactive)
 
-This package and its current capabilities support SIR or SEIR model simulations.
+This package and its current capabilities support SIR or SEIR model simulations, and purely SIR for the intervention-based simulations.
 The two primary Simulation objects can be found in the classes `epintervene.simobjects.simulation.Simulation`
-and `epintervene.simobjects.simulation.SimulationSEIR`. 
+and `epintervene.simobjects.simulation.SimulationSEIR`. For the intervention feature, use any of the available Simulation classes in
+`epintervene.simobjects.extended_simulation.py` once you have familiarized yourself with how to run a standard simulation.
 
 Currently, calls to simulators `run_sim()` methods with the appropriate configurations and run time arguments
 result in a single simulation. It is up to the user to aggregate results from an ensemble of runs on their own.
@@ -83,13 +83,24 @@ sim.configure_intervention(intervention_gen=4, beta_redux=0.6)
 This means that when the epidemic reaches generation `4`, `beta` the transmission rate will be reduced to `beta_redux`.
 
 `RandomInterventionSim(Simulation)`
-Still in progress. Please check back later. 
+This simulation class lets the user configure an intervention at a given epidemic generation to model vaccinating a specified proportion
+of the population to a transmissibility of zero, by selecting a random subset of the population. See the
+`examples/interventions_sandbox` module for examples. 
 
 Other interventions: 
 
-`MultiInterventionSim(Simulation)` will implement a phased rollout of multiple interventions,
-which should be specified via a list of intervention generations and beta reduction values, and proportion
-of network to be affected. Still in progress. Please check back later. 
+`TargetedInterventionSim`, which works just as `RandomInterventionSim` but where the vaccination strategy targets the specified
+proportion of the population in decreasing order of degree; highest degree nodes are vaccinated first.
+
+`RandomRolloutSimulation` and `TargetedRolloutSimulation` allow the user to configure a phased rollout of either
+random or targeted vaccinations. Specify the list of generations to intervene at, and the proportion of the population
+that should be vaccinated at each generation.
+
+`AbsoluteTimeNetworkSwitchSim` allows the user to switch the network on the same nodes at a specified time of intervention.
+It is best to familiarize with oneself of the simulation on both networks first, to get a sense of the appropriate
+time to intervene based on infection rates.
+
+For all of the above, examples are provided in `examples/interventions_sandbox.py`.
 
 
 
@@ -224,13 +235,17 @@ Internal object that represents a pair of nodes, where the left node and right n
 ## Examples
 See module `examples.sandbox.py` for examples of basic SIR, SEIR, and group membership simulations.
 
+See module `examples.interventions_sandbox.py` for examples of intervention-based simulations.
+
 Results of an SIR simulation (single run) with membership groups:
 
-![alt text](https://github.com/andrea-allen/epintervene/blob/main/docs/SEIR_group_example.png?raw=true)
+![SEIR example](https://github.com/andrea-allen/epintervene/blob/main/docs/SEIR_group_example.png?raw=true)
 
-![alt text](https://github.com/andrea-allen/epintervene/blob/main/docs/SEIR_total.png?raw=true)
+![SEIR example](https://github.com/andrea-allen/epintervene/blob/main/docs/SEIR_total.png?raw=true)
 
-![alt text](https://github.com/andrea-allen/epintervene/blob/main/docs/SEIR_network.png?raw=true)
+![network](https://github.com/andrea-allen/epintervene/blob/main/docs/SEIR_network.png?raw=true)
+
+![netswitch example](https://github.com/andrea-allen/epintervene/blob/main/docs/netswitch_samplefig.png?raw=true)
 
 ## Citing and using this code
 
