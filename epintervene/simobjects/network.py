@@ -139,23 +139,39 @@ class NetworkBuilder:
         return nx.erdos_renyi_graph(N, p)
 
     @staticmethod
-    def create_adjacency_list(G):
+    def create_adjacency_list(G, multi=False):
+        """
+        Given a NetworkX graph G, returns an undirected adjacency list. The optional parameter multi
+        specifies if multiple edges should be respected. Set multi to True if desired.
+        :param G: networkX graph
+        :param multi: True if multiple edges should be added to adjacency list
+        :return: list of lists
+        """
         adjlist = list(list(map(int, minilist)) for minilist in list(map(str.split, nx.generate_adjlist(G))))
 
-        corrected_adjlist = list(list() for i in range(len(adjlist)))
+        # # Re-order adjlist so each i'th entry is the entry of the i'th node
+        corrected_adjlist = list([i] for i in range(len(adjlist)))
         for entry in adjlist:
             try:
                 corrected_adjlist[entry[0]] = entry
             except IndexError:
+                current_length = len(corrected_adjlist)
                 for i in range(entry[0]-len(adjlist) + 1):
                     corrected_adjlist.append(list())
+                    corrected_adjlist[current_length+i].append(current_length+i)
                 corrected_adjlist[entry[0]] = entry
                 print(entry)
 
         adjlist = corrected_adjlist
-        # make adjlist symmetric:
         len_adj = len(adjlist)
         current_source = 0
+        # # Adding edges the other way, because our networks are undirected
+        undirected_adjlist = [[] for i in range(len_adj)]
+        for row in adjlist:
+            try:
+                undirected_adjlist[row[0]] = [i for i in row]
+            except IndexError:
+                print(row)
         for row in adjlist:
             try:
                 source = row[0]
@@ -166,22 +182,23 @@ class NetworkBuilder:
                 current_source += 1
                 print(row)
             if len(row) > 1:
+                # # Need to make a copy of the list so that you don't add 4x the edges on the way down
                 for target in row[1:]:
-                    if sum([1 for entry in row if entry==target]) > 1:
-                        row.remove(target)
                     try:
-                        if source not in adjlist[target]:
-                            adjlist[target].append(source)
+                        undirected_adjlist[target].append(source)
                     except IndexError:
                         print(source, target)
-                        adjlist.append([source])
-                # unique_neighbors = list(np.unique(row[1:]))
-                # adjlist[-1][1:] = unique_neighbors
+                        undirected_adjlist.append([source])
+                        undirected_adjlist[target].append(source)
+        if not multi:
+            for row in undirected_adjlist:
+                unique_neighbors = list(np.unique(row[1:]))
+                undirected_adjlist[row[0]][1:] = unique_neighbors
         total_entry_count = 0
         for i in range(len_adj):
-            if len(adjlist[i]) > 1:
-                total_entry_count += len(adjlist[i][1:])
-        return adjlist
+            if len(undirected_adjlist[i]) > 1:
+                total_entry_count += len(undirected_adjlist[i][1:])
+        return undirected_adjlist
 
 def visualize(N, graph, pos, gen_collection):
     G = graph

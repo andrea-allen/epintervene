@@ -206,7 +206,7 @@ class Simulation:
         if self.track_memberships:
             self._record_membership_states()
 
-        if event_class is not None: #TODO is this infecting vax'ed people? start here tuesday
+        if event_class is not None:
             if event_class == eventtype.EventType.INFECTEDSUSCEPTIBLE:
                 infection_event = next_event
                 if next_event.get_right_node().get_state()==nodestate.NodeState.SUSCEPTIBLE:
@@ -283,9 +283,10 @@ class Simulation:
                         self._out_degree_IS_events[left_node_idx].remove(event)
                         self._out_degree_IS_lengths[left_node_idx] -= 1
                         self._current_number_IS_events -= 1
-                        flat_key = self._edge_keys[event.get_left_node().get_label()][
-                            event.get_right_node().get_label()]
-                        self._potential_IS_events_flat[flat_key] = None
+                        # Get all flat_keys for ANY edges belonging to this node pair and set them to None
+                        for flat_key in self._edge_keys[event.get_left_node().get_label()][
+                            event.get_right_node().get_label()]:
+                            self._potential_IS_events_flat[flat_key] = None
                         if self._out_degree_IS_lengths[left_node_idx] == 0:
                             self._gen_collection_active[infection_IS_event.get_left_node().get_generation()].remove(
                                 infection_IS_event.get_left_node().get_label())
@@ -298,11 +299,11 @@ class Simulation:
             try:
                 out_degree_events = self._out_degree_IS_events[recovery_event.get_label()]
                 for event in out_degree_events:
-                    flat_key = self._edge_keys[event.get_left_node().get_label()][event.get_right_node().get_label()]
-                    try:
-                        self._potential_IS_events_flat[flat_key] = None
-                    except:
-                        print(flat_key)
+                    for flat_key in self._edge_keys[event.get_left_node().get_label()][event.get_right_node().get_label()]:
+                        try:
+                            self._potential_IS_events_flat[flat_key] = None
+                        except:
+                            print(flat_key)
                 self._out_degree_IS_events[recovery_event.get_label()] = []
                 self._out_degree_IS_lengths[recovery_event.get_label()] = 0
                 self._current_number_IS_events -= len(out_degree_events)
@@ -351,10 +352,15 @@ class Simulation:
                     # the length of the above list should hopefully be the same as current number of events
                     try:
                         self._edge_keys[edge_ij.get_left_node().get_label()][
-                            edge_ij.get_right_node().get_label()] = self._next_key
+                            edge_ij.get_right_node().get_label()].append(self._next_key)
                     except KeyError:
-                        self._edge_keys[edge_ij.get_left_node().get_label()] = {
-                            edge_ij.get_right_node().get_label(): self._next_key}
+                        try:
+                            self._edge_keys[edge_ij.get_left_node().get_label()][
+                                edge_ij.get_right_node().get_label()] = [self._next_key]
+                        except KeyError:
+                            self._edge_keys[edge_ij.get_left_node().get_label()] = {}
+                            self._edge_keys[edge_ij.get_left_node().get_label()][
+                                edge_ij.get_right_node().get_label()] = [self._next_key]
                     self._next_key += 1
 
     def _existing_node(self, candidate_node):
@@ -400,8 +406,8 @@ class Simulation:
         partition_end_markers = {}
         num_of_recovery_events = self._current_number_recovery_events
         num_of_infection_possible_events = self._current_number_IS_events
-        partition_end_markers[0] = num_of_infection_possible_events * self._uniform_beta
-        partition_end_markers[1] = num_of_infection_possible_events * self._uniform_beta + num_of_recovery_events * self._uniform_gamma
+        partition_end_markers[0] = num_of_infection_possible_events * self._uniform_beta ## This only works with a uniform beta
+        partition_end_markers[1] = num_of_infection_possible_events * self._uniform_beta + num_of_recovery_events * self._uniform_gamma  ## Again, only works with uniform parameters
         random_draw = random.uniform(0, partition_end_markers[1])
         sum_of_rates = (self._uniform_beta * num_of_infection_possible_events + self._uniform_gamma * num_of_recovery_events)
         tau = random.expovariate(max(sum_of_rates, .0000001))
@@ -763,9 +769,9 @@ class SimulationSEIR(Simulation):
                         self._out_degree_ES_events[left_node_idx].remove(event)
                         self._out_degree_ES_lengths[left_node_idx] -= 1
                         self._current_number_ES_events -= 1
-                        flat_key = self._edge_keys_es[event.get_left_node().get_label()][
-                            event.get_right_node().get_label()]
-                        self._potential_ES_events_flat[flat_key] = None
+                        for flat_key in self._edge_keys_es[event.get_left_node().get_label()][
+                            event.get_right_node().get_label()]:
+                            self._potential_ES_events_flat[flat_key] = None
                     except ValueError:
                         pass
                 self._in_degree_ES_events[infection_ES_event.get_right_node().get_label()] = []
@@ -775,11 +781,11 @@ class SimulationSEIR(Simulation):
             try:
                 out_degree_events = self._out_degree_ES_events[exposed_infected_event.get_label()]
                 for event in out_degree_events:
-                    flat_key = self._edge_keys_es[event.get_left_node().get_label()][event.get_right_node().get_label()]
-                    try:
-                        self._potential_ES_events_flat[flat_key] = None
-                    except:
-                        print(flat_key)
+                    for flat_key in self._edge_keys_es[event.get_left_node().get_label()][event.get_right_node().get_label()]:
+                        try:
+                            self._potential_ES_events_flat[flat_key] = None
+                        except:
+                            print(flat_key)
                 self._out_degree_ES_events[exposed_infected_event.get_label()] = []
                 self._out_degree_ES_lengths[exposed_infected_event.get_label()] = 0
                 self._current_number_ES_events -= len(out_degree_events)
@@ -826,10 +832,16 @@ class SimulationSEIR(Simulation):
                     self._potential_ES_events_flat.append(edge_ij)
                     try:
                         self._edge_keys_es[edge_ij.get_left_node().get_label()][
-                            edge_ij.get_right_node().get_label()] = self._next_key_es
+                            edge_ij.get_right_node().get_label()].append(self._next_key_es)
                     except KeyError:
-                        self._edge_keys_es[edge_ij.get_left_node().get_label()] = {
-                            edge_ij.get_right_node().get_label(): self._next_key_es}
+                        try:
+                            self._edge_keys_es[edge_ij.get_left_node().get_label()][
+                                edge_ij.get_right_node().get_label()] = [self._next_key_es]
+                        except KeyError:
+                            self._edge_keys_es[edge_ij.get_left_node().get_label()] = {}
+                            self._edge_keys_es[edge_ij.get_left_node().get_label()][
+                                edge_ij.get_right_node().get_label()] = [self._next_key_es]
+
                     self._next_key_es += 1
 
     def _record_membership_states(self):
