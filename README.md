@@ -151,10 +151,14 @@ To stop the simulation when there are no more possible infection events, you can
 your_sim_object.run_sim(wait_for_recovery=False)
 ```
 
-Other arguments:
+Other optional arguments:
 `kill_by=13` will stop the simulation after Generation 13 when there are no more active members of any generation from 0-13.
 
-`p_zero=i` specifies the node label/index for patient zero. If not specified, a random node index will be chosen.
+`p_zero=i` specifies the node label/index for patient zero. If not specified, a random node index will be chosen. To specify multiple
+patient zeros, for user-defined node labels set
+`p_zero=[i, j, k]` and to generate a specific amount (greater than 1) random patient zeros, specify
+`p_zero=[None, None, None, None]` which will generate 4 random patient zero nodes. To specify a mix of random and non-random patient zeros,
+specify `p_zero=[i, j, None, k, None]` in any order. If two copies of the same label are added, one copy will be replaced with another random patient zero.
 
 `record_active_gen_sizes=True/False` a boolean, defaults to False. Will record the number and size of active generations over time.
 An active node is defined as being infectious and still having susceptible neighbors. An active generation is defined as containing

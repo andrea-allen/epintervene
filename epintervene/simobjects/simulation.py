@@ -112,11 +112,22 @@ class Simulation:
     def _initialize_patient_zero(self, label=None):
         if label is None:
             try:
-                p_zero_idx = random.randint(0, self._N - 1)
+                p_zero_idx_list = [random.randint(0, self._N - 1)]
             except ValueError:
                 print(self._N)
+        elif len(label) > 1 and list(set(label)) == [None]:
+            p_zero_idx_list = random.sample(range(0, self._N - 1), len(label))
+        elif len(label) > 1:
+            specified_nodes = list(set([elt for elt in label if elt is not None]))
+            while len(specified_nodes) < len(label):
+                random_node = random.randint(0, self._N - 1)
+                if random_node not in specified_nodes:
+                    specified_nodes.append(random_node)
+            p_zero_idx_list = specified_nodes
         elif label is not None:
-            p_zero_idx = label
+            p_zero_idx_list = [label]
+        else:
+            p_zero_idx_list = [random.randint(0, self._N - 1)]
         if self._uniform_gamma is None:
             raise AttributeError(self._uniform_gamma,
                                  'Please provide a recovery rate gamma to the simulation via the constructor or the '
@@ -125,25 +136,26 @@ class Simulation:
             raise AttributeError(self._uniform_beta,
                                  'Please provide an infection rate beta to the simulation via the constructor or the '
                                  'set_uniform_beta method')
-        if self.use_uniform_rate:
-            patient_zero = network.Node(p_zero_idx, 0, nodestate.NodeState.INFECTED, event_rate=self._uniform_gamma)
-        else:
-            patient_zero = network.Node(p_zero_idx, 0, nodestate.NodeState.INFECTED, event_rate=self._Gamma[p_zero_idx])
-        if self.track_memberships:
-            patient_zero.set_membership(self._node_memberships[p_zero_idx])
-        self._active_node_dict[p_zero_idx] = patient_zero
-        self._gen_collection[0] = [p_zero_idx]
-        self._gen_collection_active[0] = [p_zero_idx]
+        for p_zero_idx in p_zero_idx_list:
+            if self.use_uniform_rate:
+                patient_zero = network.Node(p_zero_idx, 0, nodestate.NodeState.INFECTED, event_rate=self._uniform_gamma)
+            else:
+                patient_zero = network.Node(p_zero_idx, 0, nodestate.NodeState.INFECTED, event_rate=self._Gamma[p_zero_idx])
+            if self.track_memberships:
+                patient_zero.set_membership(self._node_memberships[p_zero_idx])
+            self._active_node_dict[p_zero_idx] = patient_zero
+            self._recovery_events[p_zero_idx] = patient_zero
+            self._recovery_events_keys.append(p_zero_idx)
+            self._current_number_recovery_events += 1
+            self._out_degree_IS_events[p_zero_idx] = []
+            self._out_degree_IS_lengths[p_zero_idx] = 0
+            self._add_IS_events(patient_zero)
+        self._gen_collection[0] = p_zero_idx_list
+        self._gen_collection_active[0] = p_zero_idx_list
         self.active_gen_ts.append(1)
         self.total_gen_ts.append(1)
-        self._current_active_gen_sizes[0] = 1
+        self._current_active_gen_sizes[0] = len(p_zero_idx_list)
         self._gen_sizes_function_of_gen.append(list(self._current_active_gen_sizes))
-        self._recovery_events[p_zero_idx] = patient_zero
-        self._recovery_events_keys.append(p_zero_idx)
-        self._current_number_recovery_events = 1
-        self._out_degree_IS_events[p_zero_idx] = []
-        self._out_degree_IS_lengths[p_zero_idx] = 0
-        self._add_IS_events(patient_zero)
 
     def run_sim(self, with_memberships=False, uniform_rate=True, wait_for_recovery=False, visualize=False,
                 viz_graph=None, viz_pos=None, p_zero=None, kill_by=None, record_active_gen_sizes=False):
@@ -153,6 +165,11 @@ class Simulation:
         :param with_memberships: Set to True if specified memberships in Simulation configuration
         :param uniform_rate: Will use a uniform transmission and recovery event probabilites instead of a customized matrix. Increases simulation speed, use if possible.
         :param wait_for_recovery: Will run simulation until all possible nodes have recovered.
+        :param p_zero: None by default, or List: will generate a random single patient zero if None or [None].
+        For multiple random patient zeros, provide a list like [None, None, None]. Otherwise, provide a list with the specific indices desired such as [2, 16, 24].
+        :param kill_by: Generation at which to stop the simulation once reached.
+        :param record_active_gen_sizes: Record the sizes of each generation over time if True.
+        :return: None
         """
         self.use_uniform_rate = uniform_rate
         if self.use_uniform_rate and (
@@ -170,7 +187,6 @@ class Simulation:
             # Run one step
             self._single_step(uniform_rate=uniform_rate, visualize=visualize, viz_graph=viz_graph, viz_pos=viz_pos,
                               record_active_gen_sizes=record_active_gen_sizes)
-
             self._total_num_timesteps += 1
             if self._current_number_IS_events == 0:
                 if not wait_for_recovery:
