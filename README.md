@@ -90,7 +90,9 @@ of the population to a transmissibility of zero, by selecting a random subset of
 Other interventions: 
 
 `TargetedInterventionSim`, which works just as `RandomInterventionSim` but where the vaccination strategy targets the specified
-proportion of the population in decreasing order of degree; highest degree nodes are vaccinated first.
+proportion of the population in decreasing order of degree; highest degree nodes are vaccinated first. *Note: Under this
+simulation framework, a desired percentage of nodes to vaccinate is specified, however the simulation will
+fill that quota regardless of current vaccination or infection status of the node.*
 
 `RandomRolloutSimulation` and `TargetedRolloutSimulation` allow the user to configure a phased rollout of either
 random or targeted vaccinations. Specify the list of generations to intervene at, and the proportion of the population

@@ -172,7 +172,7 @@ def targeted_intervention_example():
 
     # # Looping as many times as the number of simulations we want to run, we will initialize a NEW simulation object
     # # every time, and collate the results:
-    for n in range(10):
+    for n in range(40):
         # # Constructing the simulation object
         my_simulation = extended_simulation.TargetedInterventionSim(adjlist=adjlist, N=len(adjlist))
 
@@ -317,22 +317,22 @@ def absolute_time_intervention_example():
     num_runs = 100
     for n in range(num_runs):
         # # Constructing the simulation object
-        my_simulation = extended_simulation.AbsoluteTimeNetworkSwitchSim(adjlist=adjlist_1, N=len(adjlist_1))
+        my_simulation = extended_simulation.AbsoluteTimeNetworkSwitchSim(adjlist=adjlist_2, N=len(adjlist_1))
 
         # # Setting required configurations
-        my_simulation.set_uniform_beta(beta=0.7)  # .7 people per day per infected person
-        my_simulation.set_uniform_gamma(gamma=0.2)  # 5 days to recover
+        my_simulation.set_uniform_beta(beta=0.1)  # .7 people per day per infected person
+        my_simulation.set_uniform_gamma(gamma=0.005)  # 5 days to recover
 
         # # CONFIGURE THE INTERVENTION SPECIFICATION
         # # Here, this configuration means that at time t=7, the population network will switch to that given by
         # adjlist_2.
-        my_simulation.configure_intervention(intervention_time=7, new_adjlist=adjlist_2)
+        my_simulation.configure_intervention(intervention_time=7, new_adjlist=adjlist_1)
 
         # # Setting up a simulation object with the original parameters and no intervention, that only runs on
         # adjlist_1's network
-        regular_simulation = simulation.Simulation(adj_list=adjlist_1, N=len(adjlist_1))
-        regular_simulation.set_uniform_beta(beta=0.7)
-        regular_simulation.set_uniform_gamma(gamma=0.2)
+        regular_simulation = simulation.Simulation(adj_list=adjlist_2, N=len(adjlist_1))
+        regular_simulation.set_uniform_beta(beta=0.1)
+        regular_simulation.set_uniform_gamma(gamma=0.005)
 
         # # Running the simulations
         my_simulation.run_sim()
@@ -391,7 +391,7 @@ def rollout_intervention_examples():
     # # Specify a degree distribution to create a configuration model network if desired:
     degree_distrb = binomial_degree_distb(400, 3)
     # # Generating a network from the above degree distribution, with 100 nodes
-    G, pos = nb.from_degree_distribution(100, degree_distrb)
+    G, pos = nb.from_degree_distribution(300, degree_distrb)
     # # If you already have a network, feel free to skip the above steps and generate your own NetworkX object,
     # # or skip this next step and provide a symmetric adjacency list.
     adjlist = nb.create_adjacency_list(G)
@@ -402,9 +402,14 @@ def rollout_intervention_examples():
     infected_ts_random_rollout = None
     infected_ts_targeted_rollout = None
 
+    gen_results_reg = np.zeros(30)
+    gen_results_targ = np.zeros(30)
+    gen_results_rand = np.zeros(30)
+
     # # Looping as many times as the number of simulations we want to run, we will initialize a NEW simulation object
     # # every time, and collate the results:
-    for n in range(10):
+    num_sims = 100
+    for n in range(num_sims):
         # # Constructing the simulation object, a rollout with random vaccination
         random_rollout_simulation = extended_simulation.RandomRolloutSimulation(adjlist=adjlist, N=len(adjlist))
 
@@ -454,6 +459,10 @@ def rollout_intervention_examples():
                 time_buckets=1000,
                 custom_range=True,
                 custom_t_lim=15)
+            # # Obtaining cumulative infections by generations of infection:
+            gen_results_reg += regular_simulation.tabulate_generation_results(max_gens=30)
+            gen_results_targ += targeted_rollout_simulation.tabulate_generation_results(max_gens=30)
+            gen_results_rand += random_rollout_simulation.tabulate_generation_results(max_gens=30)
         else:
             _, i_t_t, _ = regular_simulation.tabulate_continuous_time(
                 time_buckets=1000,
@@ -473,10 +482,15 @@ def rollout_intervention_examples():
                 custom_t_lim=15)
             infected_ts_targeted_rollout += i_t_r
 
+            # # Obtaining cumulative infections by generations of infection:
+            gen_results_reg += regular_simulation.tabulate_generation_results(max_gens=30)
+            gen_results_targ += targeted_rollout_simulation.tabulate_generation_results(max_gens=30)
+            gen_results_rand += random_rollout_simulation.tabulate_generation_results(max_gens=30)
+
     # # Normalizing for the 10 simulations
-    infected_ts_normal = infected_ts_normal / 10
-    infected_ts_random_rollout = infected_ts_random_rollout / 10
-    infected_ts_targeted_rollout = infected_ts_targeted_rollout / 10
+    infected_ts_normal = infected_ts_normal / num_sims
+    infected_ts_random_rollout = infected_ts_random_rollout / num_sims
+    infected_ts_targeted_rollout = infected_ts_targeted_rollout / num_sims
 
     # # Plotting the results:
     plt.plot(time_series_vals, infected_ts_targeted_rollout, label='infected w/ targeted rollout intervention', color='blue')
@@ -489,19 +503,13 @@ def rollout_intervention_examples():
     plt.ylabel('Number of nodes')
     plt.show()
 
-    # # Obtaining cumulative infections by generations of infection:
-    # # These results in this example are not the ensemble result, just the results from a single (the latest) run
-    gen_results = regular_simulation.tabulate_generation_results(max_gens=30)
-    gen_results_targ = targeted_rollout_simulation.tabulate_generation_results(max_gens=30)
-    gen_results_rand = random_rollout_simulation.tabulate_generation_results(max_gens=30)
-
     # # Plotting generation results
-    plt.scatter(np.arange(30), gen_results_targ, label='cumulative infections w/ targeted rollout intervention')
-    plt.scatter(np.arange(30), gen_results, label='normal cumulative infections')
-    plt.scatter(np.arange(30), gen_results_rand, label='cumulative infections w/ random rollout intervention')
-    plt.plot(np.arange(30), gen_results_targ)
-    plt.plot(np.arange(30), gen_results)
-    plt.plot(np.arange(30), gen_results_rand)
+    plt.scatter(np.arange(30), gen_results_targ/num_sims, label='cumulative infections w/ targeted rollout intervention')
+    plt.scatter(np.arange(30), gen_results_reg/num_sims, label='normal cumulative infections')
+    plt.scatter(np.arange(30), gen_results_rand/num_sims, label='cumulative infections w/ random rollout intervention')
+    plt.plot(np.arange(30), gen_results_targ/num_sims)
+    plt.plot(np.arange(30), gen_results_reg/num_sims)
+    plt.plot(np.arange(30), gen_results_rand/num_sims)
     plt.title('Cumulative infections by epidemic generations')
     plt.xlabel('Generation number')
     plt.ylabel('Cumulative Infections')
@@ -531,5 +539,5 @@ if __name__ == '__main__':
     targeted_intervention_example()
     uniform_intervention_example()
     random_intervention_example()
-    absolute_time_intervention_example()
+    # absolute_time_intervention_example()
     rollout_intervention_examples()

@@ -207,7 +207,7 @@ class RandomRolloutSimulation(simulation.Simulation):
     def intervene(self, intervention_entry):
         print('intervening')
         if self._N == 0:
-            self._N = len(self._A[0])
+            self._N = len(self._adjlist)
         frac_of_network = self.proportion_reduced_list[intervention_entry] * self._N
         how_many = 0
         if frac_of_network > 1:
@@ -326,12 +326,14 @@ class TargetedInterventionSim(simulation.Simulation):
                     if existing_node.get_state() != nodestate.NodeState.VACCINATED:
                         if existing_node.get_state() != nodestate.NodeState.INFECTED: #Do not vaccinate currently infected nodes
                             existing_node.vaccinate()
-                            num_vaccinated += 1 #Only counted if high degree nodes are successfully vaccinated
+                            num_vaccinated += 1
                         else:
-                            infct_hd_nodes += 1 #Counts high-degree currently infected nodes
+                            infct_hd_nodes += 1  # Counts high-degree currently infected nodes
+                    else:
+                        num_vaccinated += 1  # INCREMENT ANYWAY, still counts as one of the vaccinated quota despite not being elligible.
                     self._update_IS_events(recovery_event=existing_node)
-        # print(f"Number of already infected nodes: {infct_hd_nodes}, which is {(infct_hd_nodes/how_many)} percent of the projected vacine proportion")
-        # print(f"In total, {num_vaccinated} were vaccinated, out of a planned {how_many}")
+        print(f"Number of already infected nodes: {infct_hd_nodes}, which is {(infct_hd_nodes/how_many)} percent of the projected vacine proportion")
+
 
 class TargetedRolloutSimulation(simulation.Simulation):
     def __init__(self, N, adjlist=None, max_unitless_sim_time=1000000, membership_groups=None, node_memberships=None):
@@ -409,7 +411,7 @@ class TargetedRolloutSimulation(simulation.Simulation):
         num_vaccinated = 0
         infct_hd_nodes = 0
         for degree in keys_decreasing:
-            current_node_group = degree_classes[degree] # To match analytical prediction, once a degree class is bumped up to meet the quota, the whole class is vaccinated
+            current_node_group = degree_classes[degree]
             if num_vaccinated < how_many:
                 for node in current_node_group:
                     if self.use_uniform_rate:
@@ -422,9 +424,11 @@ class TargetedRolloutSimulation(simulation.Simulation):
                     if existing_node.get_state() != nodestate.NodeState.VACCINATED:
                         if existing_node.get_state() != nodestate.NodeState.INFECTED: #Do not vaccinate currently infected nodes
                             existing_node.vaccinate()
-                            num_vaccinated += 1 #Only counted if high degree nodes are successfully vaccinated
+                            num_vaccinated += 1
                         else:
-                            infct_hd_nodes += 1 #Counts high-degree currently infected nodes
+                            infct_hd_nodes += 1  # Counts high-degree currently infected nodes
+                    else:
+                        num_vaccinated += 1 # INCREMENT ANYWAY, still counts as one of the vaccinated quota despite not being elligible.
                     self._update_IS_events(recovery_event=existing_node)
 
 class RingInterventionSim(simulation.Simulation):
