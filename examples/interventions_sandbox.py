@@ -380,6 +380,110 @@ def absolute_time_intervention_example():
     plt.ylabel('Number of nodes')
     plt.show()
 
+def random_rollout_100percent():
+    # # If you want to simulate a series of vaccinations, in which a progressive fraction of the population is
+    #   vaccinated until 100% is reached vis the Random rollout scheme:
+
+    # # Create a NetworkBuilder object, to help with creating and configuring the network for the simulation:
+    nb = network.NetworkBuilder
+    # # Specify a degree distribution to create a configuration model network if desired:
+    degree_distrb = binomial_degree_distb(400, 3)
+    # # Generating a network from the above degree distribution, with 100 nodes
+    G, pos = nb.from_degree_distribution(300, degree_distrb)
+    # # If you already have a network, feel free to skip the above steps and generate your own NetworkX object,
+    # # or skip this next step and provide a symmetric adjacency list.
+    adjlist = nb.create_adjacency_list(G)
+
+    # # Initializing the data structures for the ensemble of results:
+    time_series_vals = None
+    infected_ts_normal = None
+    infected_ts_random_rollout = None
+
+    gen_results_reg = np.zeros(30)
+    gen_results_rand = np.zeros(30)
+
+    # # Looping as many times as the number of simulations we want to run, we will initialize a NEW simulation object
+    # # every time, and collate the results:
+    num_sims = 100
+    for n in range(num_sims):
+        # # Constructing the simulation object, a rollout with random vaccination
+        random_rollout_simulation = extended_simulation.RandomRolloutSimulation(adjlist=adjlist, N=len(adjlist))
+
+        # # Setting required configurations, for starting
+        random_rollout_simulation.set_uniform_beta(beta=0.9)  # .9 people per day per infected person
+        random_rollout_simulation.set_uniform_gamma(gamma=0.2)  # 5 days to recover
+
+        # # CONFIGURE THE INTERVENTION SPECIFICATIONS
+        # # Here we will configure the interventions for both random and targeted rollouts.
+        # # We will define a list of which generations to intervene at, and what proportion of the population to
+        # vaccinate (with 100% efficacy) at each successive generation.
+
+        random_rollout_simulation.configure_intervention(intervention_gen_list=[3, 5, 7], beta_redux_list=[0,0,0], proportion_reduced_list=[.33, .33, .33])
+
+        # # Setting up a simulation object with the original parameters and no intervention:
+        regular_simulation = simulation.Simulation(adj_list=adjlist, N=len(adjlist))
+        regular_simulation.set_uniform_beta(beta=0.9)
+        regular_simulation.set_uniform_gamma(gamma=0.2)
+
+        # # Running the simulations
+        regular_simulation.run_sim()
+        random_rollout_simulation.run_sim()
+
+        # # Obtaining time series results
+        if time_series_vals is None:
+            time_series_vals, infected_ts_normal, _ = regular_simulation.tabulate_continuous_time(
+                time_buckets=1000,
+                custom_range=True,
+                custom_t_lim=15)
+            time_series_vals, infected_ts_random_rollout, _ = random_rollout_simulation.tabulate_continuous_time(
+                time_buckets=1000,
+                custom_range=True,
+                custom_t_lim=15)
+            # # Obtaining cumulative infections by generations of infection:
+            gen_results_reg += regular_simulation.tabulate_generation_results(max_gens=30)
+            gen_results_rand += random_rollout_simulation.tabulate_generation_results(max_gens=30)
+        else:
+            _, i_t_t, _ = regular_simulation.tabulate_continuous_time(
+                time_buckets=1000,
+                custom_range=True,
+                custom_t_lim=15)
+            infected_ts_normal += i_t_t
+
+            _, i_t_n, _ = random_rollout_simulation.tabulate_continuous_time(
+                time_buckets=1000,
+                custom_range=True,
+                custom_t_lim=15)
+            infected_ts_random_rollout += i_t_n
+
+            # # Obtaining cumulative infections by generations of infection:
+            gen_results_reg += regular_simulation.tabulate_generation_results(max_gens=30)
+            gen_results_rand += random_rollout_simulation.tabulate_generation_results(max_gens=30)
+
+    # # Normalizing for the 10 simulations
+    infected_ts_normal = infected_ts_normal / num_sims
+    infected_ts_random_rollout = infected_ts_random_rollout / num_sims
+
+    # # Plotting the results:
+    plt.plot(time_series_vals, infected_ts_random_rollout, label='infected w/ random rollout intervention', color='red')
+    plt.plot(time_series_vals, infected_ts_normal, label='infected normally', color='orange')
+
+    plt.legend(loc='upper left')
+    plt.title('Effects of Targeted Vaccination compared \n to normal and random')
+    plt.xlabel('Time')
+    plt.ylabel('Number of nodes')
+    plt.show()
+
+    # # Plotting generation results
+    plt.scatter(np.arange(30), gen_results_reg/num_sims, label='normal cumulative infections')
+    plt.scatter(np.arange(30), gen_results_rand/num_sims, label='cumulative infections w/ random rollout intervention')
+    plt.plot(np.arange(30), gen_results_reg/num_sims)
+    plt.plot(np.arange(30), gen_results_rand/num_sims)
+    plt.title('Cumulative infections by epidemic generations')
+    plt.xlabel('Generation number')
+    plt.ylabel('Cumulative Infections')
+    plt.legend(loc='lower right')
+    plt.show()
+
 def rollout_intervention_examples():
     # # If you want to simulate a series of vaccinations, in which a progressive fraction of the population is
     #   vaccinated in either the Random or Targeted schemes, follow the below examples:
@@ -536,8 +640,9 @@ def binomial_degree_distb(N, lam=6):
 
 
 if __name__ == '__main__':
-    targeted_intervention_example()
-    uniform_intervention_example()
-    random_intervention_example()
+    # targeted_intervention_example()
+    # uniform_intervention_example()
+    # random_intervention_example()
     # absolute_time_intervention_example()
-    rollout_intervention_examples()
+    # rollout_intervention_examples()
+    random_rollout_100percent()

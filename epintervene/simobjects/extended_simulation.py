@@ -162,6 +162,7 @@ class RandomRolloutSimulation(simulation.Simulation):
         self.time_of_intervention_list = []
         self.next_up_intervention_entry = 0
         self.use_uniform_rate = True
+        self.vax_queue = []
 
     def simtype(self):
         print('I am a simulation class of type Multi intervention Random Intervention')
@@ -172,6 +173,8 @@ class RandomRolloutSimulation(simulation.Simulation):
         self.proportion_reduced_list = proportion_reduced_list
         for i in range(len(intervention_gen_list)):
             self.intervened_status_list.append(False)
+        self.vax_queue = np.arange(self._N)
+        np.random.shuffle(self.vax_queue)
 
     def run_sim(self, with_memberships=False, uniform_rate=True, wait_for_recovery=False, visualize=False,
                 viz_graph=None, viz_pos=None, p_zero=None, kill_by=None, record_active_gen_sizes=False):
@@ -213,31 +216,23 @@ class RandomRolloutSimulation(simulation.Simulation):
         if frac_of_network > 1:
             how_many = int(np.round(frac_of_network, 0))
         vaccinated_nodes = []
-        vax_labels = []
-        while len(vaccinated_nodes) < how_many:
-            random_set = np.unique(np.random.randint(0, self._N, how_many))
-            for node_label in random_set:
-                if len(vax_labels) < how_many:
-                    if node_label not in vax_labels:
-                        if self.use_uniform_rate:
-                            candidate_node = network.Node(node_label, -1, None, self._uniform_gamma)
-                        else:
-                            candidate_node = network.Node(node_label, -1, None, self._Gamma[node_label])
-                        if self.track_memberships:
-                            candidate_node.set_membership(self._node_memberships[candidate_node.get_label()])
-                        existing_node = self._existing_node(candidate_node)
-                        # all the nodes become active
-                        if existing_node.get_state() != nodestate.NodeState.VACCINATED:
-                            # these should also be added to the active nodes
-                            if existing_node.get_state() != nodestate.NodeState.INFECTED:
-                                existing_node.vaccinate()
-                                vaccinated_nodes.append(existing_node)
-                                vax_labels.append(node_label)
-                            # self._Beta[node_label] = np.full(self._N, self.beta_redux_list[intervention_entry])
-                            # self._Beta[:, node_label] = np.full(self._N, self.beta_redux_list[intervention_entry]).T
-                                self._update_IS_events(recovery_event=existing_node)
-                            # else:
-                            #     print("I was already infected")
+        random_set = self.vax_queue[:how_many]
+        for i, node_label in enumerate(random_set):
+            if self.use_uniform_rate:
+                candidate_node = network.Node(node_label, -1, None, self._uniform_gamma)
+            else:
+                candidate_node = network.Node(node_label, -1, None, self._Gamma[node_label])
+            if self.track_memberships:
+                candidate_node.set_membership(self._node_memberships[candidate_node.get_label()])
+            existing_node = self._existing_node(candidate_node)
+            # all the nodes become active
+            if existing_node.get_state() != nodestate.NodeState.VACCINATED:
+                # these should also be added to the active nodes
+                if existing_node.get_state() != nodestate.NodeState.INFECTED:
+                    existing_node.vaccinate()
+                    vaccinated_nodes.append(existing_node)
+                    self._update_IS_events(recovery_event=existing_node)
+        self.vax_queue = self.vax_queue[how_many:]
         return vaccinated_nodes
 
 
