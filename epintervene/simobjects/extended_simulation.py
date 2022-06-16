@@ -494,3 +494,66 @@ class AbsoluteTimeNetworkSwitchSim(simulation.Simulation):
             node = self._active_node_dict[node_key]
             if node.get_state() == nodestate.NodeState.INFECTED:
                 self._add_IS_events(node)
+
+
+class TemporalNetworkSim(simulation.Simulation):
+    """
+    Supports switching adjacency lists at designated time points as specified
+    """
+    def __init__(self, N, adjlist=None, max_unitless_sim_time=1000000, membership_groups=None, node_memberships=None):
+        super().__init__(N=N, adj_list=adjlist, max_unitless_sim_time=max_unitless_sim_time,
+                         membership_groups=membership_groups,
+                         node_memberships=node_memberships)
+        self.adjlists_modified = []
+        self.intervention_times = []
+        self.use_uniform_rate = True
+
+    def configure_intervention(self,
+                               snapshots,
+                               switchtimes):
+        """
+
+        :param snapshots: should be provided as a list of adjacency lists
+        :param switchtimes: should be provided as a list of floats at which each new network should be introduced
+        :return:
+        """
+        self.adjlists_modified = snapshots
+        self.intervention_times = switchtimes
+
+    def simtype(self):
+        print('Temporal network simulation')
+
+    def run_sim(self, with_memberships=False, uniform_rate=True, wait_for_recovery=False, visualize=False,
+                viz_graph=None, viz_pos=None, p_zero=None, kill_by=None, record_active_gen_sizes=False):
+        self.use_uniform_rate = uniform_rate
+        if with_memberships: self.track_memberships = True
+        if self.track_memberships:
+            self._init_membership_state_time_series()
+        self._initialize_patient_zero(label=p_zero)
+        intervention_index = 0
+        max_index = len(self.adjlists_modified)
+        while self._current_sim_time < self.total_sim_time:
+            if intervention_index < max_index and self._current_sim_time >= self.intervention_times[intervention_index]:
+                self.intervene(self.adjlists_modified[intervention_index])
+                intervention_index += 1
+            # Run one step
+            self._single_step(uniform_rate=uniform_rate, visualize=visualize, viz_graph=viz_graph)
+
+            self._total_num_timesteps += 1
+            if self._current_number_IS_events == 0:
+                if not wait_for_recovery:
+                    break
+                elif len(self._recovery_events) == 0:
+                    break
+            if kill_by is not None and self._highest_gen >= kill_by:
+                should_quit = self._check_active_gens(kill_by)
+                if should_quit:
+                    break
+
+    def intervene(self, snapshot):
+        self.set_adjlist(snapshot)
+        self._reset_node_states()
+        for node_key in list(self._active_node_dict.keys()):
+            node = self._active_node_dict[node_key]
+            if node.get_state() == nodestate.NodeState.INFECTED:
+                self._add_IS_events(node)
