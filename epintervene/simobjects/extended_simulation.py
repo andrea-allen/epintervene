@@ -393,7 +393,7 @@ class TargetedRolloutSimulation(simulation.Simulation):
             how_many = int(np.round(frac_of_network, 0))
 
         degrees = list([len(neighbor) - 1 for neighbor in self._adjlist])
-        degree_classes = {}
+        degree_classes = {} # defining the degree classes
         for i in range(len(degrees)):
             degree = degrees[i]
             try:
@@ -407,8 +407,9 @@ class TargetedRolloutSimulation(simulation.Simulation):
         infct_hd_nodes = 0
         for degree in keys_decreasing:
             current_node_group = degree_classes[degree]
-            if num_vaccinated < how_many:
-                for node in current_node_group:
+            # Mariah flipped 411 and 410 for the percentage change.
+            for node in current_node_group:
+                if num_vaccinated < how_many:
                     if self.use_uniform_rate:
                         candidate_node = network.Node(node, -1, None, self._uniform_gamma)
                     else:
@@ -425,7 +426,6 @@ class TargetedRolloutSimulation(simulation.Simulation):
                     else:
                         num_vaccinated += 1 # INCREMENT ANYWAY, still counts as one of the vaccinated quota despite not being elligible.
                     self._update_IS_events(recovery_event=existing_node)
-
 class RingInterventionSim(simulation.Simulation):
     # TODO
     def simtype(self):
